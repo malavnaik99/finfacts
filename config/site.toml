@@ -1,0 +1,2 @@
+# Single source of truth for the public site URL. Use relative links everywhere else.
+site_url = "https://malavnaik99.github.io"

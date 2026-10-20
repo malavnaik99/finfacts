@@ -1,0 +1,24 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# data (bronze lives in GCS from Week 4; local copies are never committed)
+data/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+dist/
+*.egg-info/
+
+# dbt / tools
+target/
+dbt_packages/
+logs/
+*.log
+.DS_Store

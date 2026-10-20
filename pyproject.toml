@@ -1,0 +1,49 @@
+[project]
+name = "finfacts"
+version = "0.1.0"
+description = "Certified, point-in-time-correct SEC EDGAR fundamentals for humans and LLM agents."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Malav Naik" }]
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "httpx>=0.27",
+    "tenacity>=9.0",
+    "pydantic-settings>=2.4",
+    "typer>=0.12",
+]
+
+[project.scripts]
+finfacts = "finfacts.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "respx>=0.21",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pre-commit>=3.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/finfacts"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S", "PT"]
+ignore = ["S101"]  # asserts are fine in tests
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
