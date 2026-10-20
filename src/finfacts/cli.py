@@ -6,7 +6,7 @@ from datetime import date
 import httpx
 import typer
 
-from finfacts.ingest import bulk, universe
+from finfacts.ingest import bulk, flatten, incremental, universe
 from finfacts.sec.client import SecClient
 from finfacts.settings import Settings
 
@@ -52,3 +52,24 @@ def backfill() -> None:
     ciks = {c.cik for c in universe.load_universe(universe.latest_universe_path())}
     with SecClient(s.sec_user_agent, s.sec_max_rps) as client:
         bulk.backfill(client, ciks, s.bronze_dir, s.cache_dir)
+
+
+@app.command("incremental")
+def incremental_cmd() -> None:
+    """Pull companyfacts only for CIKs with new periodic XBRL filings (idempotent)."""
+    s = _settings()
+    ciks = {c.cik for c in universe.load_universe(universe.latest_universe_path())}
+    with SecClient(s.sec_user_agent, s.sec_max_rps) as client:
+        stats = incremental.run_incremental(client, ciks, s.bronze_dir, s.state_path)
+    typer.echo(
+        f"checked={stats.checked} new_filings={stats.new_filings} "
+        f"pulled={stats.pulled} deferred={stats.deferred}"
+    )
+
+
+@app.command("flatten")
+def flatten_cmd() -> None:
+    """Convert new bronze JSON files to parquet for dbt (idempotent)."""
+    s = _settings()
+    written, skipped = flatten.flatten_all(s.bronze_dir, s.flat_dir)
+    typer.echo(f"flatten: written={written} skipped={skipped}")

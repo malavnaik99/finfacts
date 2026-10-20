@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: int_fact_versions
+    description: >
+      Restatement history. One row per distinct value of a fact over time. A version is the
+      value known from `valid_from` (inclusive) until `valid_to` (exclusive, null = current).
+      Repeating an unchanged value in a later filing does not create a version.
+    columns:
+      - name: fact_version_id
+        data_tests: [unique, not_null]
+      - name: fact_key
+        data_tests: [not_null]
+      - name: version_no
+        description: 1 = first reported value; >1 = changed in a later filing.
+        data_tests: [not_null]
+      - name: valid_from
+        description: SEC acceptance date (UTC) of the filing that first reported this value.
+        data_tests: [not_null]
+      - name: valid_to
+        description: Acceptance date of the next different value; null for the current version.
+      - name: is_restatement
+        description: True when an earlier filing reported a different value for the same fact.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [fact_key, version_no]

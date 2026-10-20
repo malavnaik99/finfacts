@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: flat
+    description: Parquet written by `finfacts flatten` from immutable bronze JSON (one row per fact / filing).
+    meta:
+      external_location: >-
+        read_parquet('{{ env_var('DATA_DIR', 'data') }}/flat/{name}/*/*.parquet',
+        hive_partitioning = true, union_by_name = true)
+    tables:
+      - name: companyfacts
+        description: Every fact in every companyfacts snapshot, as SEC published it.
+      - name: filings
+        description: Filing index from submissions (recent block and older page files).
+      - name: company
+        description: Company attributes from each submissions snapshot.
+  - name: config
+    tables:
+      - name: universe
+        description: Dated S&P 500 snapshots committed under config/universe/.
+        meta:
+          external_location: "read_csv('config/universe/sp500_*.csv', filename = true, all_varchar = true)"

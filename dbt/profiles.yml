@@ -1,0 +1,8 @@
+# No secrets here: every value comes from env vars with safe local defaults.
+finfacts:
+  target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
+  outputs:
+    duckdb:
+      type: duckdb
+      path: "{{ env_var('FINFACTS_DUCKDB_PATH', 'data/finfacts.duckdb') }}"
+      threads: 4

@@ -28,3 +28,11 @@ class Settings(BaseSettings):
     @property
     def cache_dir(self) -> Path:
         return self.data_dir / "cache"
+
+    @property
+    def flat_dir(self) -> Path:
+        return self.data_dir / "flat"
+
+    @property
+    def state_path(self) -> Path:
+        return self.data_dir / "ops" / "ingest_state.json"

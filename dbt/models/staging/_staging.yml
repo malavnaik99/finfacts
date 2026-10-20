@@ -1,0 +1,55 @@
+version: 2
+
+models:
+  - name: stg_companyfacts
+    description: >
+      One row per fact as reported in one filing, us-gaap + dei, from financial-statement
+      forms only (`financial_statement_forms`), periods ending on or after `min_period_end`
+      and not after the filing date.
+    columns:
+      - name: filing_fact_id
+        description: Hash of fact_key + accession_number. Grain key.
+        data_tests: [unique, not_null]
+      - name: fact_key
+        description: Hash of (cik, taxonomy, concept, unit, period_start, period_end); the same fact across filings.
+        data_tests: [not_null]
+      - name: cik
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_universe')
+                field: cik
+      - name: period_end
+        data_tests: [not_null]
+      - name: value
+        data_tests: [not_null]
+      - name: accession_number
+        data_tests: [not_null]
+      - name: filed_date
+        data_tests: [not_null]
+      - name: filing_fiscal_year
+        description: Fiscal year of the FILING (SEC `fy`), not of the fact. Do not use for period logic.
+
+  - name: stg_filings
+    description: One row per (cik, accession_number) from submissions.
+    columns:
+      - name: filing_id
+        data_tests: [unique, not_null]
+      - name: accession_number
+        data_tests: [not_null]
+      - name: accepted_at
+        description: SEC acceptance time, UTC.
+
+  - name: stg_company
+    description: Company attributes per CIK per submissions snapshot date.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [cik, ingest_date]
+
+  - name: stg_universe
+    description: Latest committed S&P 500 snapshot.
+    columns:
+      - name: cik
+        data_tests: [unique, not_null]

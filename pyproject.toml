@@ -1,6 +1,6 @@
 [project]
 name = "finfacts"
-version = "0.1.0"
+version = "0.2.0"
 description = "Certified, point-in-time-correct SEC EDGAR fundamentals for humans and LLM agents."
 readme = "README.md"
 license = "MIT"
@@ -11,6 +11,9 @@ dependencies = [
     "tenacity>=9.0",
     "pydantic-settings>=2.4",
     "typer>=0.12",
+    "pyarrow>=26.0.0",
+    "dbt-core>=1.12.6",
+    "dbt-duckdb>=1.11.0",
 ]
 
 [project.scripts]
@@ -43,6 +46,10 @@ ignore = ["S101"]  # asserts are fine in tests
 [tool.mypy]
 strict = true
 files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]  # ships no type stubs
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

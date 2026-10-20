@@ -1,0 +1,35 @@
+name: finfacts
+version: "0.2.0"
+config-version: 2
+profile: finfacts
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+
+vars:
+  min_period_end: "2014-01-01"  # FY2015 needs prior-year comparatives
+  in_scope_taxonomies: ["us-gaap", "dei"]
+  # Filings that carry financial statements. Excludes proxies (DEF 14A pay-vs-performance
+  # tables tag NetIncomeLoss rounded to $0.1B) and registration statements. 8-K stays: it
+  # carries recast prior-period statements, which are real point-in-time knowledge.
+  financial_statement_forms: ["10-K", "10-K/A", "10-Q", "10-Q/A", "10-KT", "10-KT/A", "10-QT",
+    "10-QT/A", "20-F", "20-F/A", "40-F", "40-F/A", "8-K", "8-K/A"]
+
+models:
+  finfacts:
+    staging:
+      +materialized: table
+      +schema: silver
+    intermediate:
+      +materialized: table
+      +schema: silver
+    marts:
+      +materialized: table
+      +schema: gold
+      +contract:
+        enforced: true
+
+flags:
+  send_anonymous_usage_stats: false

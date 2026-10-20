@@ -5,6 +5,7 @@
 
 # data (bronze lives in GCS from Week 4; local copies are never committed)
 data/
+build/
 
 # python
 __pycache__/

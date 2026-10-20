@@ -1,0 +1,84 @@
+version: 2
+
+models:
+  - name: dim_company
+    description: One row per company version (SCD2 on name, tickers, SIC, fiscal year end).
+    config:
+      contract: {enforced: true}
+    columns:
+      - {name: company_sk, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: cik, data_type: bigint, constraints: [{type: not_null}]}
+      - {name: name, data_type: varchar}
+      - {name: tickers, data_type: varchar}
+      - {name: exchanges, data_type: varchar}
+      - {name: sic, data_type: varchar}
+      - {name: sic_description, data_type: varchar}
+      - {name: fiscal_year_end, data_type: varchar, description: "MMDD of the fiscal year end"}
+      - {name: state_of_incorporation, data_type: varchar}
+      - {name: category, data_type: varchar}
+      - {name: gics_sector, data_type: varchar}
+      - {name: gics_sub_industry, data_type: varchar}
+      - {name: valid_from, data_type: date, constraints: [{type: not_null}]}
+      - {name: valid_to, data_type: date}
+      - {name: is_current, data_type: boolean}
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [cik, valid_from]
+
+  - name: dim_period
+    description: >
+      One row per company reporting period (cik, period_start, period_end) with fiscal and
+      calendar labels. Fiscal year is named by the calendar year it ends in.
+    config:
+      contract: {enforced: true}
+    columns:
+      - {name: period_key, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: cik, data_type: bigint, constraints: [{type: not_null}]}
+      - {name: period_start, data_type: date, description: "null for instant (balance-sheet) facts"}
+      - {name: period_end, data_type: date, constraints: [{type: not_null}]}
+      - name: period_type
+        data_type: varchar
+        data_tests: [{accepted_values: {arguments: {values: [instant, duration]}}}]
+      - {name: duration_days, data_type: integer}
+      - {name: duration_months, data_type: integer, description: "0 instant; 3/6/9/12; null = irregular"}
+      - {name: fiscal_year, data_type: integer, constraints: [{type: not_null}]}
+      - {name: fiscal_quarter, data_type: integer}
+      - name: fiscal_period
+        data_type: varchar
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Q1, Q2, Q3, Q4, FY, Q2_YTD, Q3_YTD, OTHER]
+      - {name: calendar_frame, data_type: varchar, description: "SEC-style frame, e.g. CY2024Q3, CY2024, CY2024Q3I"}
+
+unit_tests:
+  - name: dim_period_fiscal_labels
+    description: Fiscal year/quarter come from dates + fiscal year end, incl. 52/53-week years.
+    model: dim_period
+    given:
+      - input: ref('dim_company')
+        rows:
+          - {cik: 320193, fiscal_year_end: "0926", is_current: true}   # Apple
+          - {cik: 104169, fiscal_year_end: "0131", is_current: true}   # Walmart
+          - {cik: 1, fiscal_year_end: "1231", is_current: true}
+      - input: ref('int_fact_versions')
+        rows:
+          - {cik: 320193, period_key: a, period_start: "2024-09-29", period_end: "2024-12-28"}
+          - {cik: 320193, period_key: b, period_start: "2023-10-01", period_end: "2024-09-28"}
+          - {cik: 320193, period_key: c, period_start: null, period_end: "2024-09-28"}
+          - {cik: 1, period_key: d, period_start: null, period_end: "2024-01-02"}
+          - {cik: 104169, period_key: e, period_start: "2024-02-01", period_end: "2024-10-31"}
+          - {cik: 1, period_key: f, period_start: "2024-01-01", period_end: "2024-02-15"}
+          - {cik: 1, period_key: g, period_start: null, period_end: "2024-10-25"}         # cover-page date
+          - {cik: 1, period_key: h, period_start: "2023-10-01", period_end: "2024-09-30"} # trailing 12 months
+    expect:
+      rows:
+        - {period_key: a, fiscal_year: 2025, fiscal_period: Q1, duration_months: 3, calendar_frame: CY2024Q4}
+        - {period_key: b, fiscal_year: 2024, fiscal_period: FY, duration_months: 12, calendar_frame: CY2024}
+        - {period_key: c, fiscal_year: 2024, fiscal_period: Q4, duration_months: 0, calendar_frame: CY2024Q3I}
+        - {period_key: d, fiscal_year: 2023, fiscal_period: Q4, duration_months: 0, calendar_frame: CY2023Q4I}
+        - {period_key: e, fiscal_year: 2025, fiscal_period: Q3_YTD, duration_months: 9, calendar_frame: null}
+        - {period_key: f, fiscal_year: 2024, fiscal_period: OTHER, duration_months: null, calendar_frame: null}
+        - {period_key: g, fiscal_year: 2024, fiscal_period: OTHER, duration_months: 0, calendar_frame: CY2024Q3I}
+        - {period_key: h, fiscal_year: 2024, fiscal_period: OTHER, duration_months: 12, calendar_frame: CY2024}
