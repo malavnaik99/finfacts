@@ -1,8 +1,10 @@
 -- One date range per (company, fiscal year, fiscal period, period type).
 -- Near-duplicates (the same quarter dated 03-31 by one filing and 04-01 by another) are
 -- resolved by taking the range with the most facts: the primary statements use it.
+-- Ties go to the range reported first (the company's own original period, e.g. AT&T Q3 2015
+-- starts 07-01, not the 06-24 of a later recast), then period_key, so builds are repeatable.
 with fact_counts as (
-    select period_key, count(distinct fact_key) as fact_count
+    select period_key, count(distinct fact_key) as fact_count, min(valid_from) as first_seen
     from {{ ref('int_fact_versions') }}
     group by period_key
 ),
@@ -23,7 +25,7 @@ ranked as (
         and p.fiscal_year >= {{ var('min_fiscal_year') }}
     qualify row_number() over (
         partition by p.cik, p.fiscal_year, p.fiscal_period, p.period_type
-        order by c.fact_count desc, p.period_end desc
+        order by c.fact_count desc, p.period_end desc, c.first_seen, p.period_key
     ) = 1
 )
 

@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] – 2026-10-21 – Review fixes
+
+### Fixed
+- Derived quarters subtracted two different XBRL concepts (e.g. FY `Revenues` minus 9M contract revenue): 909 wrong quarters, 18 with negative revenue. Quarter derivations now require the same concept on both inputs; mismatches stay empty (2,164 derived rows removed, incl. dependent FCF and margins).
+- Derivations no longer chain CTEs: each layer is a stored model (`int_metric_l1_quarters` ... `int_metric_values`) and `derive()` handles all rules of a layer in one pass over its input table. The old chain referenced one CTE up to 170 times and would not run on BigQuery. Local build of the chain: 13 s → 3 s.
+- Canonical period choice was nondeterministic when two date ranges tied on fact count and end date (4 groups, e.g. Deere FY2016 Q3, whose first-known date flipped by a year between builds). Ties now go to the range reported first.
+
 ## [0.3.0] – 2026-10-21 – Milestone 3: concept mapping and gold mart
 
 ### Added

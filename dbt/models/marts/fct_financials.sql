@@ -1,29 +1,10 @@
 -- Certified fundamentals, point-in-time. One row per company x metric x fiscal period x
 -- version. A version is the value known from valid_from (inclusive) to valid_to (exclusive).
 -- Use fct_financials_latest for current values, or the as_of(date) macro for history.
-{%- set duration_periods = ['Q1', 'Q2', 'Q3', 'Q4', 'Q2_YTD', 'Q3_YTD', 'FY'] %}
-
-with v as (
-    select * from {{ ref('int_metric_values') }}
-),
-
-fcf as (
-    {{ per_period('v', duration_periods, 'free_cash_flow', 'operating_cash_flow', 'capex', 'a - b') }}
-),
-
-v_fcf as (select * from v union all select * from fcf),
-
-margins as (
-    {{ per_period('v_fcf', duration_periods, 'gross_margin', 'gross_profit', 'revenue', 'a / nullif(b, 0)') }}
-    union all
-    {{ per_period('v_fcf', duration_periods, 'operating_margin', 'operating_income', 'revenue', 'a / nullif(b, 0)') }}
-    union all
-    {{ per_period('v_fcf', duration_periods, 'net_margin', 'net_income', 'revenue', 'a / nullif(b, 0)') }}
-),
-
-certified as (
+-- All derivations happen upstream (int_metric_values); this model only certifies and versions.
+with certified as (
     select a.*, m.unit, m.period_type
-    from (select * from v_fcf union all select * from margins) as a
+    from {{ ref('int_metric_values') }} as a
     inner join {{ ref('metrics') }} as m on a.metric_id = m.metric_id
     where m.is_certified
 ),

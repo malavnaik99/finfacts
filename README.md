@@ -77,7 +77,7 @@ where cik = 19617 and concept = 'Revenues' and period_start = '2019-01-01' and p
 
 | Table | Grain |
 |---|---|
-| `gold.fct_financials` | company × metric × fiscal period × **version** (654k rows) |
+| `gold.fct_financials` | company × metric × fiscal period × **version** (652k rows) |
 | `gold.fct_financials_latest` | current value of each company × metric × fiscal period (view) |
 | `gold.dim_concept` | metric definitions and the XBRL concepts each accepts, in priority order |
 | `gold.dim_fiscal_period` | fiscal calendar: Q1–Q4, Q2_YTD, Q3_YTD and FY per company and year |
@@ -112,7 +112,7 @@ Q4 is almost never filed as a 3-month figure, so FinFacts derives it as FY − 9
 | Incremental, first run after backfill | 500 checked, 6 new 10-Q/10-K, 6 pulled, ~2 min |
 | Incremental rerun | 500 checked, 0 pulled |
 | Facts restated at least once | 228,594 of 4.92 M (4.6%) |
-| Full `dbt build` incl. gold (61 models/tests) | ~60 s |
+| Full `dbt build` incl. gold (65 models/tests) | ~35 s |
 
 ## Repo layout
 

@@ -30,3 +30,4 @@ net_interest_income,Net interest income (helper),USD,duration,income,false,true,
 noninterest_income,Non-interest income (helper),USD,duration,income,false,true,"Banks: fees, trading and other non-interest income."
 profit_loss,Net income incl. NCI (helper),USD,duration,income,false,true,"ProfitLoss; used to derive net_income."
 net_income_nci,Net income to NCI (helper),USD,duration,income,false,true,"Net income attributable to non-controlling interests."
+liabilities_plus_temp_equity,Liabilities + temporary equity (helper),USD,instant,balance,false,false,"Liabilities-and-equity minus equity incl. NCI; step towards total liabilities."

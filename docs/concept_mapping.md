@@ -14,7 +14,7 @@ FinFacts publishes **21 certified metrics**. Each is defined once in [`dbt/seeds
 
 | Derived value | Rule | When it is used |
 |---|---|---|
-| Quarterly flows (Q2, Q3, Q4) | `Q2 = H1 − Q1`, `Q3 = 9M − H1`, `Q4 = FY − 9M` | Companies file Q4 only as part of the year, and cash-flow statements only as year-to-date. Not used for EPS or share counts, which can't be subtracted. |
+| Quarterly flows (Q2, Q3, Q4) | `Q2 = H1 − Q1`, `Q3 = 9M − H1`, `Q4 = FY − 9M` | Companies file Q4 only as part of the year, and cash-flow statements only as year-to-date. **Only when both inputs use the same XBRL concept**: subtracting a subset tag from a total (e.g. FY `Revenues` − 9M contract revenue) produced 909 wrong quarters, 18 of them negative revenue. Such quarters are left empty. Not used for EPS or share counts, which can't be subtracted. |
 | Net income | `ProfitLoss − net income attributable to NCI` | Companies that never tag `NetIncomeLoss` (e.g. Illinois Tool Works). This raised net-income coverage from 89.5% to 97.7%. |
 | Bank revenue | net interest income + non-interest income | Banks with no total-revenue tag. |
 | Gross profit | revenue − cost of revenue | When `GrossProfit` isn't tagged. |
@@ -53,4 +53,5 @@ The failing identity rows are kept in `quality.identity_checks`. Most balance-sh
 
 - **Successor issuers.** 13 companies whose FinFacts history starts after FY2016 have a successor-issuer filing (8-K12B): they re-registered under a new CIK, for example ExxonMobil (2026), Disney (2019), Broadcom (2018) and BlackRock (2024). Their history before the reorganisation is under the predecessor CIK and is missing until a predecessor mapping is added.
 - **Concept switching.** A company can move between tags over the years, for example Apple: `SalesRevenueNet` → `Revenues` → ASC 606. Values stay comparable in practice, and `source_concept` shows every switch.
+- **Recast years.** When a company recasts its full year (e.g. discontinued operations) but not the 9-month figure, FY − 9M is genuinely negative. 13 revenue quarters are affected (e.g. AIG 2022 Q4, Exelon 2020 Q4). They are kept as calculated and flagged by `is_derived`.
 - **Banks and insurers.** Revenue follows the bank-revenue rule above. Insurers' revenue uses `Revenues`. Gross profit and operating income are mostly empty by design.
