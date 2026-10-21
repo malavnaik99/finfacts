@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     sec_user_agent: str = Field(description="App name + contact email, required by SEC.")
     sec_max_rps: float = Field(default=8.0, gt=0, le=10)
     data_dir: Path = Path("data")
+    gcp_project_id: str | None = None
+    gcs_bucket: str | None = None
 
     @field_validator("sec_user_agent")
     @classmethod

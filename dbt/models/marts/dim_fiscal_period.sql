@@ -66,9 +66,9 @@ periods as (
 select
     {{ surrogate_key(['cik', 'fiscal_year', 'fiscal_period']) }} as fiscal_period_key,
     cast(cik as bigint) as cik,
-    cast(fiscal_year as integer) as fiscal_year,
+    cast(fiscal_year as bigint) as fiscal_year,
     fiscal_period,
-    cast(duration_months as integer) as duration_months,
+    cast(duration_months as bigint) as duration_months,
     cast(period_start as date) as period_start,
     cast(period_end as date) as period_end,
     {{ calendar_frame('period_start', 'period_end', 'duration_months') }} as calendar_frame

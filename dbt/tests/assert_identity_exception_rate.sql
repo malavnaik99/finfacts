@@ -6,7 +6,7 @@ select
     count(*) as checked,
     sum(case when passed then 0 else 1 end) as failed,
     1.0 * sum(case when passed then 0 else 1 end) / count(*) as failure_rate,
-    max(max_failure_rate) as max_failure_rate
+    max(max_failure_rate) as failure_limit
 from {{ ref('identity_checks') }}
 group by check_name
 having 1.0 * sum(case when passed then 0 else 1 end) / count(*) > max(max_failure_rate)

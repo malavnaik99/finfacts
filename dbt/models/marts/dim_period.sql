@@ -50,7 +50,7 @@ base as (
     inner join fye as f on p.cik = f.cik
 ),
 
-fiscal_year as (
+with_fiscal_year as (
     select
         *,
         -- 52/53-week years drift up to a week from the nominal year-end date
@@ -69,7 +69,7 @@ quarters as (
         *,
         {{ dbt.datediff(make_date('fiscal_year - 1', 'fye_month', 'fye_day'), 'period_end', 'day') }}
             as days_into_year
-    from fiscal_year
+    from with_fiscal_year
 ),
 
 labelled as (
@@ -94,10 +94,10 @@ select
     period_start,
     period_end,
     case when period_start is null then 'instant' else 'duration' end as period_type,
-    cast(duration_days as integer) as duration_days,
-    cast(duration_months as integer) as duration_months,
-    cast(fiscal_year as integer) as fiscal_year,
-    cast(fiscal_quarter as integer) as fiscal_quarter,
+    cast(duration_days as bigint) as duration_days,
+    cast(duration_months as bigint) as duration_months,
+    cast(fiscal_year as bigint) as fiscal_year,
+    cast(fiscal_quarter as bigint) as fiscal_quarter,
     -- Anything not aligned with the fiscal calendar (trailing-12-month figures, acquiree
     -- periods, cover-page dates) is OTHER rather than a misleading Qn/FY label.
     case

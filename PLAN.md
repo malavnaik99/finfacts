@@ -150,11 +150,11 @@ flowchart LR
 | Local/CI warehouse | DuckDB (dbt-duckdb) | Zero cost, reads the same bronze files, CI runs in seconds |
 | Prod warehouse | BigQuery (US multi-region) | Free 1 TB/month queries + 10 GB storage; MERGE needs billing enabled |
 | Raw storage | GCS bucket (us-central1) | GCS free tier only applies in US regions; bronze stays tiny |
-| Orchestration (local) | Airflow 3 via Astro CLI | Shows real DAG design; calls the same CLI |
+| Orchestration (local) | ~~Airflow 3 via Astro CLI~~ *(cut 2026-10-21, approved: a local-only demo DAG; Make targets + GitHub Actions run everything)* | — |
 | Scheduling (prod) | **GitHub Actions cron** | Free for public repos. Hosted Airflow (Composer) costs ≈ EUR 300+/month — see Q1 |
 | Semantic layer | dbt MetricFlow (`dbt-metricflow`, `mf` CLI) | Works with dbt Core on both DuckDB and BigQuery |
 | Data quality | dbt tests + dbt_utils + model contracts | One tool instead of two; enough for identities, freshness and volume |
-| Lineage | OpenLineage (`dbt-ol`, Airflow provider) → Marquez (Docker, local) | Standard spec; Marquez runs only when demoing, so it costs nothing |
+| Lineage | dbt docs lineage graph (`dbt docs generate`) *(OpenLineage + Marquez cut 2026-10-21, approved: local-only demo)* | Free, already produced by dbt |
 | 10-K section extraction | edgartools (MIT) for Item 1A / Item 7 | Section parsing in 10-K HTML is notoriously messy; don't rebuild it |
 | Embeddings | `BAAI/bge-small-en-v1.5` locally (sentence-transformers) | Free, good retrieval quality, runs on a CPU |
 | Vector store | LanceDB (local files) + parquet on Hugging Face | Free and portable; projects 3 and 4 can load it directly |
@@ -224,7 +224,6 @@ finfacts/
 │  ├─ dbt_project.yml · profiles.yml (env-var driven: duckdb | bq_audit | bq_prod)
 │  ├─ models/staging/ · intermediate/ · marts/ · semantic/
 │  ├─ seeds/concept_map.csv · macros/as_of.sql · tests/ (singular tests)
-├─ airflow/                     # Astro project: dags/finfacts_daily.py
 ├─ infra/terraform/             # bucket, datasets, SA, WIF, budgets
 ├─ health/                      # Evidence site → GitHub Pages
 ├─ eval/                        # questions/v1/*.yaml, gold SQL, gold answers
@@ -271,8 +270,8 @@ dbt project on DuckDB: `stg_companyfacts`, `stg_submissions`, `int_fact_versions
 *Done when:* 30/30 golden values pass, coverage ≥ 95%, identity exceptions ≤ 1%, and `make demo-query` prints Apple's quarterly revenue FY2015–latest matching the 10-Ks.
 
 **Week 4 – GCP, write-audit-publish, scheduling** *(needs your OK before creating resources)*
-Terraform: bucket, `ops`/`silver`/`audit`/`gold` datasets, service account, WIF, budgets at EUR 5/15. dbt BigQuery targets, `finfacts publish`, `daily.yml` cron. Airflow DAG running locally through Astro calling the same CLI. OpenLineage → local Marquez.
-*Done when:* `terraform plan` shows only the expected resources. One full backfill is in BigQuery. A deliberately broken test leaves gold untouched and sends the alert email. 3 consecutive daily runs succeed. `astro dev start` runs the DAG green, and Marquez shows the lineage graph.
+Terraform: bucket, `raw`/`audit`/`gold`/`ops` datasets, service account, WIF, budgets at EUR 5/15 and a daily BigQuery query quota (hard cap). Predecessor-CIK mapping for companies that re-registered (e.g. ExxonMobil, Disney). dbt BigQuery target, `finfacts publish`, `daily.yml` cron. *(Airflow and OpenLineage/Marquez cut 2026-10-21, approved.)*
+*Done when:* `terraform plan` shows only the expected resources. One full backfill is in BigQuery. A deliberately broken test leaves gold untouched and sends the alert email. 3 consecutive daily runs succeed. ExxonMobil has revenue back to FY2015.
 
 **Week 5 – Semantic layer and health page**
 MetricFlow semantic models and metrics for all ~20. Add `ops.run_log` with bytes billed, plus an Evidence health page (freshness, test pass rate, cost per run, coverage) deployed to GitHub Pages.

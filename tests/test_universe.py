@@ -2,7 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from finfacts.ingest.universe import build_universe, load_universe, write_universe
+from finfacts.ingest.universe import (
+    build_universe,
+    latest_universe_path,
+    load_predecessor_ciks,
+    load_universe,
+    write_universe,
+)
 
 HEADER = (
     "Symbol,Security,GICS Sector,GICS Sub-Industry,Headquarters Location,Date added,CIK,Founded"
@@ -37,3 +43,18 @@ def test_roundtrip(tmp_path: Path) -> None:
     path = tmp_path / "sp500_2026-10-20.csv"
     write_universe(companies, path)
     assert load_universe(path) == companies
+
+
+def test_predecessor_ciks(tmp_path: Path) -> None:
+    p = tmp_path / "predecessors.csv"
+    p.write_text(
+        "successor_cik,predecessor_cik,cutoff_date,note\n2115436,34088,2026-07-01,x\n",
+        encoding="utf-8",
+    )
+    assert load_predecessor_ciks(p) == {34088}
+
+
+def test_committed_predecessors_are_distinct_from_universe() -> None:
+    # A predecessor that is itself a universe company would be counted twice.
+    universe_ciks = {c.cik for c in load_universe(latest_universe_path())}
+    assert load_predecessor_ciks().isdisjoint(universe_ciks)

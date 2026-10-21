@@ -15,6 +15,9 @@ dependencies = [
     "dbt-core>=1.12.6",
     "dbt-duckdb>=1.11.0",
     "duckdb>=1.5.6",
+    "dbt-bigquery>=1.12.1",
+    "google-cloud-bigquery>=3.46.2",
+    "google-cloud-storage>=3.1.1",
 ]
 
 [project.scripts]
@@ -44,12 +47,16 @@ target-version = "py311"
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S", "PT"]
 ignore = ["S101"]  # asserts are fine in tests
 
+[tool.ruff.lint.flake8-bugbear]
+# Typer declares CLI options as call defaults; they are evaluated once and never mutated.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
 [tool.mypy]
 strict = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["pyarrow", "pyarrow.*"]  # ships no type stubs
+module = ["pyarrow", "pyarrow.*", "google.cloud.storage"]  # ship no type stubs
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -1,0 +1,82 @@
+name: daily
+
+# SEC load -> BigQuery -> write-audit-publish. A failed step stops the run before publish,
+# so `gold` keeps its last good version; GitHub emails the failure.
+on:
+  schedule:
+    - cron: "30 6 * * *"  # 06:30 UTC, after SEC's nightly bulk files
+  workflow_dispatch:
+    inputs:
+      wap_drill:
+        description: "Make a dbt test fail on purpose to prove gold stays untouched"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write  # Workload Identity Federation: no service-account keys
+
+concurrency:
+  group: daily
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCS_BUCKET: ${{ vars.GCS_BUCKET }}
+  SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch latest ingest state
+        run: |
+          mkdir -p data/ops
+          latest=$(gcloud storage ls "gs://$GCS_BUCKET/ops/ingest_state/" | sort | tail -1)
+          gcloud storage cp "$latest" data/ops/ingest_state.json
+
+      - name: Incremental SEC load and flatten
+        run: |
+          uv run finfacts incremental
+          uv run finfacts flatten
+
+      - name: Upload new bronze and parquet (append-only)
+        run: |
+          for d in bronze flat; do
+            if [ -d "data/$d" ]; then gcloud storage cp -r --no-clobber "data/$d" "gs://$GCS_BUCKET/"; fi
+          done
+          gcloud storage cp data/ops/ingest_state.json \
+            "gs://$GCS_BUCKET/ops/ingest_state/$(date -u +%Y%m%dT%H%M%SZ).json"
+
+      - name: Load raw tables
+        run: uv run finfacts load-bq
+
+      - name: Build and test in audit (write-audit)
+        run: >
+          uv run dbt build --project-dir dbt --profiles-dir dbt --target bq
+          --vars '{wap_drill: ${{ inputs.wap_drill || false }}}'
+
+      - name: Publish to gold (only reached when every test passed)
+        run: uv run finfacts publish
+
+      - name: Keep dbt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-artifacts
+          path: |
+            dbt/target/run_results.json
+            dbt/target/manifest.json
+          retention-days: 30

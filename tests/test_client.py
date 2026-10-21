@@ -15,7 +15,7 @@ URL = "https://data.sec.gov/submissions/CIK0000320193.json"
 def _no_backoff_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     # tenacity sleeps via time.sleep inside its retrying object; make retries instant.
     for fn in (SecClient.get_json, SecClient.download, SecClient.last_modified_date):
-        monkeypatch.setattr(fn.retry, "sleep", lambda _s: None)
+        monkeypatch.setattr(fn.retry, "sleep", lambda _s: None)  # type: ignore[union-attr]
 
 
 @respx.mock

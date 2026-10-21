@@ -5,6 +5,7 @@ import os
 import sys
 from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import httpx
 import typer
@@ -12,6 +13,11 @@ import typer
 from finfacts.ingest import bulk, flatten, incremental, universe
 from finfacts.sec.client import SecClient
 from finfacts.settings import Settings
+
+if TYPE_CHECKING:
+    from google.cloud import bigquery
+
+DBT_MANIFEST = Path("dbt/target/manifest.json")
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
@@ -53,6 +59,7 @@ def backfill() -> None:
     """Download the SEC bulk zips and land in-scope CIKs in bronze (idempotent)."""
     s = _settings()
     ciks = {c.cik for c in universe.load_universe(universe.latest_universe_path())}
+    ciks |= universe.load_predecessor_ciks()
     with SecClient(s.sec_user_agent, s.sec_max_rps) as client:
         bulk.backfill(client, ciks, s.bronze_dir, s.cache_dir)
 
@@ -87,3 +94,35 @@ def query_cmd(sql_file: Path, limit: int = typer.Option(200, help="Max rows to p
     db = os.environ.get("FINFACTS_DUCKDB_PATH", "data/finfacts.duckdb")
     with duckdb.connect(db, read_only=True) as con:
         con.sql(sql_file.read_text(encoding="utf-8")).show(max_rows=limit, max_width=200)
+
+
+def _bq() -> "bigquery.Client":
+    from google.cloud import bigquery  # local import: only the warehouse commands need it
+
+    s = _settings()
+    if not s.gcp_project_id:
+        raise typer.BadParameter("set GCP_PROJECT_ID")
+    return bigquery.Client(project=s.gcp_project_id, location="US")
+
+
+@app.command("load-bq")
+def load_bq_cmd() -> None:
+    """Replace BigQuery raw tables from the flattened parquet in GCS (free load jobs)."""
+    from finfacts import warehouse
+
+    s = _settings()
+    if not s.gcs_bucket:
+        raise typer.BadParameter("set GCS_BUCKET")
+    warehouse.load_raw(_bq(), s.gcs_bucket)
+
+
+@app.command("publish")
+def publish_cmd(
+    manifest: Path = typer.Option(DBT_MANIFEST, help="dbt manifest of the audited build"),
+) -> None:
+    """Copy audited gold tables from `audit` to `gold`. Run only after dbt build passed."""
+    from finfacts import warehouse
+
+    tables = warehouse.published_models(manifest)
+    warehouse.publish(_bq(), tables)
+    typer.echo(f"published {len(tables)} tables: {', '.join(tables)}")

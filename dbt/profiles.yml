@@ -6,3 +6,16 @@ finfacts:
       type: duckdb
       path: "{{ env_var('FINFACTS_DUCKDB_PATH', 'data/finfacts.duckdb') }}"
       threads: 4
+    # Production: every model is built and tested in the `audit` dataset first
+    # (write-audit-publish). Auth is Application Default Credentials: your
+    # `gcloud auth application-default login` locally, Workload Identity in GitHub Actions.
+    bq:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID', 'finfacts-mn-2026') }}"
+      dataset: audit
+      location: US
+      threads: 8
+      priority: interactive
+      job_execution_timeout_seconds: 900
+      maximum_bytes_billed: 5368709120  # 5 GB: a runaway query fails instead of costing money

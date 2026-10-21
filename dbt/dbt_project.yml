@@ -40,9 +40,13 @@ seeds:
   finfacts:
     +schema: reference
     metrics:
-      +column_types: {is_certified: boolean, quarter_derivable: boolean}
+      +column_types: {is_certified: bool, quarter_derivable: bool}
     golden_values:
-      +column_types: {cik: bigint, expected_value: bigint, tolerance: bigint, as_of_date: date}
+      +column_types: {cik: int64, expected_value: int64, tolerance: int64, as_of_date: date}
+
+# BigQuery jobs get dbt labels (model, invocation), so cost per run can be measured.
+query-comment:
+  job-label: true
 
 flags:
   send_anonymous_usage_stats: false

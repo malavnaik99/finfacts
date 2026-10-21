@@ -23,7 +23,7 @@ select
         as financial_fact_id,
     cast(v.cik as bigint) as cik,
     v.metric_id,
-    cast(v.fiscal_year as integer) as fiscal_year,
+    cast(v.fiscal_year as bigint) as fiscal_year,
     v.fiscal_period,
     {{ surrogate_key(['v.cik', 'v.fiscal_year', 'v.fiscal_period']) }} as fiscal_period_key,
     -- balance-sheet values are as of period_end; they have no start
@@ -32,7 +32,7 @@ select
     p.calendar_frame,
     v.value,
     v.unit,
-    cast(v.version_no as integer) as version_no,
+    cast(v.version_no as bigint) as version_no,
     v.valid_from,
     v.valid_to,
     v.version_no > 1 as is_restatement,

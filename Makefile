@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup check-env lint fmt typecheck test ci universe backfill-local incremental \
-        flatten build dbt-ci fixtures demo-query
+        flatten build dbt-ci fixtures demo-query load-bq bq-build publish
 
 DBT := uv run dbt --no-use-colors
 DBT_ARGS := --project-dir dbt --profiles-dir dbt
@@ -60,3 +60,14 @@ demo-query:  ## Apple quarterly revenue FY2015-latest from the gold mart
 
 fixtures:  ## Regenerate tests/fixtures from the local backfill
 	uv run python scripts/make_fixtures.py
+
+# --- BigQuery (needs GCP_PROJECT_ID / GCS_BUCKET and `gcloud auth application-default login`)
+
+load-bq:  ## Replace BigQuery raw tables from the parquet in GCS (free load jobs)
+	uv run finfacts load-bq
+
+bq-build:  ## Build and test every model in the BigQuery `audit` dataset (write-audit)
+	$(DBT) build $(DBT_ARGS) --target bq
+
+publish:  ## Copy audited gold tables to `gold` -- run only after bq-build passed (publish)
+	uv run finfacts publish

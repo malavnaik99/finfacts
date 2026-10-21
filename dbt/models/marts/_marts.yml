@@ -6,21 +6,21 @@ models:
     config:
       contract: {enforced: true}
     columns:
-      - {name: company_sk, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
-      - {name: cik, data_type: bigint, constraints: [{type: not_null}]}
-      - {name: name, data_type: varchar}
-      - {name: tickers, data_type: varchar}
-      - {name: exchanges, data_type: varchar}
-      - {name: sic, data_type: varchar}
-      - {name: sic_description, data_type: varchar}
-      - {name: fiscal_year_end, data_type: varchar, description: "MMDD of the fiscal year end"}
-      - {name: state_of_incorporation, data_type: varchar}
-      - {name: category, data_type: varchar}
-      - {name: gics_sector, data_type: varchar}
-      - {name: gics_sub_industry, data_type: varchar}
+      - {name: company_sk, data_type: string, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: cik, data_type: int64, constraints: [{type: not_null}]}
+      - {name: name, data_type: string}
+      - {name: tickers, data_type: string}
+      - {name: exchanges, data_type: string}
+      - {name: sic, data_type: string}
+      - {name: sic_description, data_type: string}
+      - {name: fiscal_year_end, data_type: string, description: "MMDD of the fiscal year end"}
+      - {name: state_of_incorporation, data_type: string}
+      - {name: category, data_type: string}
+      - {name: gics_sector, data_type: string}
+      - {name: gics_sub_industry, data_type: string}
       - {name: valid_from, data_type: date, constraints: [{type: not_null}]}
       - {name: valid_to, data_type: date}
-      - {name: is_current, data_type: boolean}
+      - {name: is_current, data_type: bool}
     data_tests:
       - unique_combination:
           arguments:
@@ -33,24 +33,24 @@ models:
     config:
       contract: {enforced: true}
     columns:
-      - {name: period_key, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
-      - {name: cik, data_type: bigint, constraints: [{type: not_null}]}
+      - {name: period_key, data_type: string, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: cik, data_type: int64, constraints: [{type: not_null}]}
       - {name: period_start, data_type: date, description: "null for instant (balance-sheet) facts"}
       - {name: period_end, data_type: date, constraints: [{type: not_null}]}
       - name: period_type
-        data_type: varchar
+        data_type: string
         data_tests: [{accepted_values: {arguments: {values: [instant, duration]}}}]
-      - {name: duration_days, data_type: integer}
-      - {name: duration_months, data_type: integer, description: "0 instant; 3/6/9/12; null = irregular"}
-      - {name: fiscal_year, data_type: integer, constraints: [{type: not_null}]}
-      - {name: fiscal_quarter, data_type: integer}
+      - {name: duration_days, data_type: int64}
+      - {name: duration_months, data_type: int64, description: "0 instant; 3/6/9/12; null = irregular"}
+      - {name: fiscal_year, data_type: int64, constraints: [{type: not_null}]}
+      - {name: fiscal_quarter, data_type: int64}
       - name: fiscal_period
-        data_type: varchar
+        data_type: string
         data_tests:
           - accepted_values:
               arguments:
                 values: [Q1, Q2, Q3, Q4, FY, Q2_YTD, Q3_YTD, OTHER]
-      - {name: calendar_frame, data_type: varchar, description: "SEC-style frame, e.g. CY2024Q3, CY2024, CY2024Q3I"}
+      - {name: calendar_frame, data_type: string, description: "SEC-style frame, e.g. CY2024Q3, CY2024, CY2024Q3I"}
 
   - name: dim_fiscal_period
     description: >
@@ -58,26 +58,26 @@ models:
       Q3_YTD and FY. Quarters a company never files as a 3-month period are reconstructed
       from neighbouring period ends.
     columns:
-      - {name: fiscal_period_key, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
-      - {name: cik, data_type: bigint, constraints: [{type: not_null}]}
-      - {name: fiscal_year, data_type: integer, constraints: [{type: not_null}]}
-      - {name: fiscal_period, data_type: varchar, constraints: [{type: not_null}]}
-      - {name: duration_months, data_type: integer}
+      - {name: fiscal_period_key, data_type: string, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: cik, data_type: int64, constraints: [{type: not_null}]}
+      - {name: fiscal_year, data_type: int64, constraints: [{type: not_null}]}
+      - {name: fiscal_period, data_type: string, constraints: [{type: not_null}]}
+      - {name: duration_months, data_type: int64}
       - {name: period_start, data_type: date}
       - {name: period_end, data_type: date, constraints: [{type: not_null}]}
-      - {name: calendar_frame, data_type: varchar}
+      - {name: calendar_frame, data_type: string}
 
   - name: dim_concept
     description: Certified metrics with definitions and the XBRL concepts each accepts, in priority order.
     columns:
-      - {name: metric_id, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
-      - {name: name, data_type: varchar}
-      - {name: unit, data_type: varchar}
-      - {name: period_type, data_type: varchar}
-      - {name: statement, data_type: varchar}
-      - {name: definition, data_type: varchar}
-      - {name: quarter_derivable, data_type: boolean}
-      - {name: source_concepts, data_type: varchar}
+      - {name: metric_id, data_type: string, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: name, data_type: string}
+      - {name: unit, data_type: string}
+      - {name: period_type, data_type: string}
+      - {name: statement, data_type: string}
+      - {name: definition, data_type: string}
+      - {name: quarter_derivable, data_type: bool}
+      - {name: source_concepts, data_type: string}
 
   - name: fct_financials
     description: >
@@ -85,39 +85,39 @@ models:
       version. Filter with the as_of(date) macro for history, or use
       fct_financials_latest for current values.
     columns:
-      - {name: financial_fact_id, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: financial_fact_id, data_type: string, constraints: [{type: not_null}], data_tests: [unique]}
       - name: cik
-        data_type: bigint
+        data_type: int64
         constraints: [{type: not_null}]
         data_tests:
           - relationships: {arguments: {to: "ref('stg_universe')", field: cik}}
       - name: metric_id
-        data_type: varchar
+        data_type: string
         constraints: [{type: not_null}]
         data_tests:
           - relationships: {arguments: {to: "ref('dim_concept')", field: metric_id}}
-      - {name: fiscal_year, data_type: integer, constraints: [{type: not_null}]}
+      - {name: fiscal_year, data_type: int64, constraints: [{type: not_null}]}
       - name: fiscal_period
-        data_type: varchar
+        data_type: string
         constraints: [{type: not_null}]
         data_tests:
           - accepted_values: {arguments: {values: [Q1, Q2, Q3, Q4, Q2_YTD, Q3_YTD, FY]}}
       - name: fiscal_period_key
-        data_type: varchar
+        data_type: string
         data_tests:
           - relationships: {arguments: {to: "ref('dim_fiscal_period')", field: fiscal_period_key}}
       - {name: period_start, data_type: date, description: "null for balance-sheet (instant) metrics"}
       - {name: period_end, data_type: date}
-      - {name: calendar_frame, data_type: varchar}
-      - {name: value, data_type: double, constraints: [{type: not_null}]}
-      - {name: unit, data_type: varchar, description: "USD, USD/shares, shares or ratio"}
-      - {name: version_no, data_type: integer, constraints: [{type: not_null}]}
+      - {name: calendar_frame, data_type: string}
+      - {name: value, data_type: "{{ 'float64' if target.type == 'bigquery' else 'double' }}", constraints: [{type: not_null}]}
+      - {name: unit, data_type: string, description: "USD, USD/shares, shares or ratio"}
+      - {name: version_no, data_type: int64, constraints: [{type: not_null}]}
       - {name: valid_from, data_type: date, constraints: [{type: not_null}], description: "SEC acceptance date this value became known"}
       - {name: valid_to, data_type: date, description: "date it was superseded; null = current"}
-      - {name: is_restatement, data_type: boolean}
-      - {name: is_derived, data_type: boolean, description: "true when computed (e.g. Q4 = FY - 9M), not tagged"}
-      - {name: source_concept, data_type: varchar, description: "XBRL concept used, or the derivation rule"}
-      - {name: accession_number, data_type: varchar, description: "filing the value came from (null if derived)"}
+      - {name: is_restatement, data_type: bool}
+      - {name: is_derived, data_type: bool, description: "true when computed (e.g. Q4 = FY - 9M), not tagged"}
+      - {name: source_concept, data_type: string, description: "XBRL concept used, or the derivation rule"}
+      - {name: accession_number, data_type: string, description: "filing the value came from (null if derived)"}
     data_tests:
       - unique_combination:
           arguments:

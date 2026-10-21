@@ -1,0 +1,13 @@
+successor_cik,predecessor_cik,cutoff_date,note
+2115436,34088,2026-07-01,"ExxonMobil Holdings Corp <- Exxon Mobil Corp (holding-company reorganisation; old CIK keeps filing as a subsidiary)"
+1744489,1001039,2019-03-20,"Walt Disney Co <- TWDC Enterprises 18 Corp. (new holding company at the 21st Century Fox acquisition)"
+1730168,1649338,2018-04-04,"Broadcom Inc. <- Broadcom Pte. Ltd. (redomiciled from Singapore to the US)"
+1739940,701221,2018-12-20,"Cigna Group <- Cigna Holding Co (new holding company at the Express Scripts acquisition)"
+1707925,884905,2018-11-02,"Linde plc <- Linde Inc (formerly Praxair, the accounting acquirer in the Linde AG merger)"
+1711269,54507,2018-06-04,"Evergy, Inc. <- Evergy Kansas Central (formerly Westar Energy, the accounting acquirer in the Great Plains merger)"
+1841666,6769,2021-03-01,"APA Corp <- Apache Corp (holding-company reorganisation; old CIK kept filing as a subsidiary)"
+1835632,1058057,2021-04-20,"Marvell Technology, Inc. <- Marvell Technology Group Ltd (redomiciled from Bermuda to the US)"
+1996862,1144519,2023-11-01,"Bunge Global SA <- Bunge Ltd (redomiciled from Bermuda to Switzerland)"
+1858681,1411494,2022-01-03,"Apollo Global Management, Inc. <- Apollo Asset Management, Inc. (new holding company at the Athene merger)"
+2012383,1364742,2024-10-01,"BlackRock, Inc. <- BlackRock Finance, Inc. (new holding company at the GIP acquisition)"
+2011641,1832433,2024-08-01,"Ferguson Enterprises Inc. <- Ferguson (Jersey) Ltd (redomiciled from Jersey to the US)"
