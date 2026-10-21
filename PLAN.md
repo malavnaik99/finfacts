@@ -244,7 +244,7 @@ finfacts/
 | Source | dbt source freshness (latest `filed_date` < 4 days on weekdays); volume (row count within ±20% of 7-day median, never shrinking in bronze) | dbt | **Yes** |
 | Model contracts | Enforced column names, types, `not_null` on gold | dbt `contract: enforced` | **Yes** |
 | Keys | `unique` + `not_null` on every grain key; relationships fct→dims | dbt | **Yes** |
-| Accounting identities | `Assets = Liabilities + Equity` (incl. NCI) within 0.5%; `GrossProfit = Revenue − COGS` within 1%; `FCF = OCF − Capex` exactly | dbt singular tests | **Yes** for gold; failing rows quarantined to `audit.identity_exceptions`; ≤ 1% exception rate allowed and reported |
+| Accounting identities | `Assets = Liabilities + Equity` (incl. NCI) within 0.5%; `GrossProfit = Revenue − COGS` within 1%; `FCF = OCF − Capex` exactly | dbt singular tests | **Yes** for gold; failing rows listed in `quality.identity_checks`. *(Changed 2026-10-21, approved: the 1% exception cap became gates calibrated just above measured rates, balance sheet ≤ 2.5% and gross profit ≤ 6%. The remaining failures are company tagging errors and businesses where gross profit isn't revenue − cost.)* |
 | Restatements | One open (`valid_to IS NULL`) version per fact key; versions non-overlapping | dbt | **Yes** |
 | Golden values | 30 hand-checked numbers from 10-K PDFs (10 companies × 3 metrics) | dbt seed + test | **Yes** |
 | Coverage | ≥ 95% of company-years have revenue / net income / assets | dbt | warn |

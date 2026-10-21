@@ -9,15 +9,33 @@ with periods as (
     from {{ ref('int_fact_versions') }}
 ),
 
+fye_raw as (
+    select
+        cik,
+        cast(substr(fiscal_year_end, 1, 2) as integer) as mm,
+        cast(substr(fiscal_year_end, 3, 2) as integer) as dd
+    from {{ ref('dim_company') }}
+    where is_current
+),
+
+-- A year end in the first week of a month is a 52/53-week year that ended around the
+-- previous month end (J&J's FYE is listed as 0103 because one year ended on Jan 3).
+-- Normalise it to that month end, or every year would be labelled one year too late.
 fye as (
     select
         cik,
-        cast(substr(fiscal_year_end, 1, 2) as integer) as fye_month,
-        -- Feb 29 year ends are treated as Feb 28 so make_date works every year
-        case when fiscal_year_end = '0229' then 28
-             else cast(substr(fiscal_year_end, 3, 2) as integer) end as fye_day
-    from {{ ref('dim_company') }}
-    where is_current
+        case when dd <= 7 then (case when mm = 1 then 12 else mm - 1 end) else mm end as fye_month,
+        case
+            when dd <= 7 then
+                case (case when mm = 1 then 12 else mm - 1 end)
+                    when 2 then 28 when 4 then 30 when 6 then 30 when 9 then 30 when 11 then 30
+                    else 31
+                end
+            -- Feb 29 year ends are treated as Feb 28 so make_date works every year
+            when mm = 2 and dd = 29 then 28
+            else dd
+        end as fye_day
+    from fye_raw
 ),
 
 base as (
@@ -66,11 +84,7 @@ labelled as (
             when duration_days between 170 and 200 then 6
             when duration_days between 260 and 290 then 9
             when duration_days between 350 and 380 then 12
-        end as duration_months,
-        -- calendar frame follows SEC's convention: the calendar period the fact mostly covers
-        case when period_start is null then period_end
-             else {{ dbt.dateadd('day', 'cast(duration_days / 2 as integer)', 'period_start') }}
-        end as frame_anchor
+        end as duration_months
     from quarters
 )
 
@@ -94,16 +108,5 @@ select
         when duration_months = 12 and fiscal_quarter = 4 then 'FY'
         else 'OTHER'
     end as fiscal_period,
-    case
-        when duration_months = 12
-            then concat('CY', cast(extract(year from frame_anchor) as {{ dbt.type_string() }}))
-        when duration_months = 3
-            then concat('CY', cast(extract(year from frame_anchor) as {{ dbt.type_string() }}),
-                        'Q', cast(extract(quarter from frame_anchor) as {{ dbt.type_string() }}))
-        when duration_months = 0
-            -- instants: nearest calendar quarter end
-            then concat('CY', cast(extract(year from {{ dbt.dateadd('day', -46, 'period_end') }} ) as {{ dbt.type_string() }}),
-                        'Q', cast(extract(quarter from {{ dbt.dateadd('day', -46, 'period_end') }}) as {{ dbt.type_string() }}),
-                        'I')
-    end as calendar_frame
+    {{ calendar_frame('period_start', 'period_end', 'duration_months') }} as calendar_frame
 from labelled

@@ -52,6 +52,86 @@ models:
                 values: [Q1, Q2, Q3, Q4, FY, Q2_YTD, Q3_YTD, OTHER]
       - {name: calendar_frame, data_type: varchar, description: "SEC-style frame, e.g. CY2024Q3, CY2024, CY2024Q3I"}
 
+  - name: dim_fiscal_period
+    description: >
+      Fiscal calendar: one row per (company, fiscal year, fiscal period) for Q1-Q4, Q2_YTD,
+      Q3_YTD and FY. Quarters a company never files as a 3-month period are reconstructed
+      from neighbouring period ends.
+    columns:
+      - {name: fiscal_period_key, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: cik, data_type: bigint, constraints: [{type: not_null}]}
+      - {name: fiscal_year, data_type: integer, constraints: [{type: not_null}]}
+      - {name: fiscal_period, data_type: varchar, constraints: [{type: not_null}]}
+      - {name: duration_months, data_type: integer}
+      - {name: period_start, data_type: date}
+      - {name: period_end, data_type: date, constraints: [{type: not_null}]}
+      - {name: calendar_frame, data_type: varchar}
+
+  - name: dim_concept
+    description: Certified metrics with definitions and the XBRL concepts each accepts, in priority order.
+    columns:
+      - {name: metric_id, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: name, data_type: varchar}
+      - {name: unit, data_type: varchar}
+      - {name: period_type, data_type: varchar}
+      - {name: statement, data_type: varchar}
+      - {name: definition, data_type: varchar}
+      - {name: quarter_derivable, data_type: boolean}
+      - {name: source_concepts, data_type: varchar}
+
+  - name: fct_financials
+    description: >
+      Certified fundamentals, point-in-time. One row per company x metric x fiscal period x
+      version. Filter with the as_of(date) macro for history, or use
+      fct_financials_latest for current values.
+    columns:
+      - {name: financial_fact_id, data_type: varchar, constraints: [{type: not_null}], data_tests: [unique]}
+      - name: cik
+        data_type: bigint
+        constraints: [{type: not_null}]
+        data_tests:
+          - relationships: {arguments: {to: "ref('stg_universe')", field: cik}}
+      - name: metric_id
+        data_type: varchar
+        constraints: [{type: not_null}]
+        data_tests:
+          - relationships: {arguments: {to: "ref('dim_concept')", field: metric_id}}
+      - {name: fiscal_year, data_type: integer, constraints: [{type: not_null}]}
+      - name: fiscal_period
+        data_type: varchar
+        constraints: [{type: not_null}]
+        data_tests:
+          - accepted_values: {arguments: {values: [Q1, Q2, Q3, Q4, Q2_YTD, Q3_YTD, FY]}}
+      - name: fiscal_period_key
+        data_type: varchar
+        data_tests:
+          - relationships: {arguments: {to: "ref('dim_fiscal_period')", field: fiscal_period_key}}
+      - {name: period_start, data_type: date, description: "null for balance-sheet (instant) metrics"}
+      - {name: period_end, data_type: date}
+      - {name: calendar_frame, data_type: varchar}
+      - {name: value, data_type: double, constraints: [{type: not_null}]}
+      - {name: unit, data_type: varchar, description: "USD, USD/shares, shares or ratio"}
+      - {name: version_no, data_type: integer, constraints: [{type: not_null}]}
+      - {name: valid_from, data_type: date, constraints: [{type: not_null}], description: "SEC acceptance date this value became known"}
+      - {name: valid_to, data_type: date, description: "date it was superseded; null = current"}
+      - {name: is_restatement, data_type: boolean}
+      - {name: is_derived, data_type: boolean, description: "true when computed (e.g. Q4 = FY - 9M), not tagged"}
+      - {name: source_concept, data_type: varchar, description: "XBRL concept used, or the derivation rule"}
+      - {name: accession_number, data_type: varchar, description: "filing the value came from (null if derived)"}
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [cik, metric_id, fiscal_year, fiscal_period, version_no]
+
+  - name: fct_financials_latest
+    description: Current value of every certified metric (open versions of fct_financials).
+    config:
+      contract: {enforced: false}
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [cik, metric_id, fiscal_year, fiscal_period]
+
 unit_tests:
   - name: dim_period_fiscal_labels
     description: Fiscal year/quarter come from dates + fiscal year end, incl. 52/53-week years.
@@ -62,6 +142,7 @@ unit_tests:
           - {cik: 320193, fiscal_year_end: "0926", is_current: true}   # Apple
           - {cik: 104169, fiscal_year_end: "0131", is_current: true}   # Walmart
           - {cik: 1, fiscal_year_end: "1231", is_current: true}
+          - {cik: 200406, fiscal_year_end: "0103", is_current: true}  # J&J: 52/53-week Dec year
       - input: ref('int_fact_versions')
         rows:
           - {cik: 320193, period_key: a, period_start: "2024-09-29", period_end: "2024-12-28"}
@@ -72,6 +153,8 @@ unit_tests:
           - {cik: 1, period_key: f, period_start: "2024-01-01", period_end: "2024-02-15"}
           - {cik: 1, period_key: g, period_start: null, period_end: "2024-10-25"}         # cover-page date
           - {cik: 1, period_key: h, period_start: "2023-10-01", period_end: "2024-09-30"} # trailing 12 months
+          - {cik: 200406, period_key: j, period_start: "2024-12-30", period_end: "2025-12-28"}
+          - {cik: 200406, period_key: k, period_start: null, period_end: "2021-01-03"}
     expect:
       rows:
         - {period_key: a, fiscal_year: 2025, fiscal_period: Q1, duration_months: 3, calendar_frame: CY2024Q4}
@@ -82,3 +165,5 @@ unit_tests:
         - {period_key: f, fiscal_year: 2024, fiscal_period: OTHER, duration_months: null, calendar_frame: null}
         - {period_key: g, fiscal_year: 2024, fiscal_period: OTHER, duration_months: 0, calendar_frame: CY2024Q3I}
         - {period_key: h, fiscal_year: 2024, fiscal_period: OTHER, duration_months: 12, calendar_frame: CY2024}
+        - {period_key: j, fiscal_year: 2025, fiscal_period: FY, duration_months: 12, calendar_frame: CY2025}
+        - {period_key: k, fiscal_year: 2020, fiscal_period: Q4, duration_months: 0, calendar_frame: CY2020Q4I}

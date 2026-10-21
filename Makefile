@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup check-env lint fmt typecheck test ci universe backfill-local incremental \
-        flatten build dbt-ci fixtures
+        flatten build dbt-ci fixtures demo-query
 
 DBT := uv run dbt --no-use-colors
 DBT_ARGS := --project-dir dbt --profiles-dir dbt
@@ -46,14 +46,17 @@ flatten:  ## Convert new bronze JSON to parquet (idempotent)
 build: flatten  ## Flatten + dbt build (models and tests) on local DuckDB
 	$(DBT) build $(DBT_ARGS)
 
-# CI: same pipeline on committed fixtures (5 real CIKs, trimmed), isolated in build/ci.
+# CI: same pipeline on committed fixtures (8 real CIKs, trimmed), isolated in build/ci.
 dbt-ci: export DATA_DIR := build/ci
 dbt-ci: export FINFACTS_DUCKDB_PATH := build/ci/finfacts.duckdb
 dbt-ci: export SEC_USER_AGENT := FinFacts-ci/0.1 ci@example.com
 dbt-ci:  ## dbt build on committed fixtures (offline)
 	uv run python -c "import shutil; shutil.rmtree('build/ci', ignore_errors=True); shutil.copytree('tests/fixtures/bronze', 'build/ci/bronze')"
 	uv run finfacts flatten
-	$(DBT) build $(DBT_ARGS)
+	$(DBT) build $(DBT_ARGS) --exclude tag:full_data
+
+demo-query:  ## Apple quarterly revenue FY2015-latest from the gold mart
+	uv run finfacts query queries/apple_quarterly_revenue.sql
 
 fixtures:  ## Regenerate tests/fixtures from the local backfill
 	uv run python scripts/make_fixtures.py

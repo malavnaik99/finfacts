@@ -1,7 +1,10 @@
 """`finfacts` command-line entry point, shared by Make, Airflow and GitHub Actions."""
 
 import logging
+import os
+import sys
 from datetime import date
+from pathlib import Path
 
 import httpx
 import typer
@@ -73,3 +76,14 @@ def flatten_cmd() -> None:
     s = _settings()
     written, skipped = flatten.flatten_all(s.bronze_dir, s.flat_dir)
     typer.echo(f"flatten: written={written} skipped={skipped}")
+
+
+@app.command("query")
+def query_cmd(sql_file: Path, limit: int = typer.Option(200, help="Max rows to print")) -> None:
+    """Run a SQL file against the local DuckDB warehouse (read-only) and print the result."""
+    import duckdb  # local import: only this command needs it
+
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]  # Windows consoles
+    db = os.environ.get("FINFACTS_DUCKDB_PATH", "data/finfacts.duckdb")
+    with duckdb.connect(db, read_only=True) as con:
+        con.sql(sql_file.read_text(encoding="utf-8")).show(max_rows=limit, max_width=200)

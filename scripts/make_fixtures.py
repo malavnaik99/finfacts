@@ -10,8 +10,9 @@ from pathlib import Path
 from typing import Any
 
 # Apple (Sep 52/53-week FYE), Microsoft (June FYE), JPMorgan (bank), Walmart (Jan FYE),
-# Salesforce (Jan FYE; has the stale `filed` date quirk documented in int_fact_versions).
-CIKS = [320193, 789019, 19617, 104169, 1108524]
+# Salesforce (stale `filed` date quirk), ITW (no NetIncomeLoss tag), J&J (FYE listed as 0103),
+# NextEra (utility revenue tag).
+CIKS = [320193, 789019, 19617, 104169, 1108524, 49826, 200406, 753308]
 CONCEPTS = {
     "Revenues",
     "RevenueFromContractWithCustomerExcludingAssessedTax",
@@ -20,6 +21,19 @@ CONCEPTS = {
     "LongTermDebt",
     "AssetsFairValueDisclosure",
     "EntityCommonStockSharesOutstanding",
+    "RegulatedAndUnregulatedOperatingRevenue",
+    "CostOfRevenue",
+    "CostOfGoodsAndServicesSold",
+    "GrossProfit",
+    "OperatingIncomeLoss",
+    "ProfitLoss",
+    "NetIncomeLossAttributableToNoncontrollingInterest",
+    "EarningsPerShareDiluted",
+    "Liabilities",
+    "LiabilitiesAndStockholdersEquity",
+    "StockholdersEquity",
+    "NetCashProvidedByUsedInOperatingActivities",
+    "PaymentsToAcquirePropertyPlantAndEquipment",
 }
 MIN_END = "2021-01-01"
 FORMS = {"10-K", "10-K/A", "10-Q", "10-Q/A"}

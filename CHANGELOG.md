@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] – 2026-10-21 – Milestone 3: concept mapping and gold mart
+
+### Added
+- Metric catalogue (21 certified metrics + helpers) and concept map with a priority and rationale for every XBRL concept (`dbt/seeds/`), documented in `docs/concept_mapping.md`.
+- `int_canonical_periods`: one date range per company fiscal period (most-facts wins), resolving near-duplicate period ends.
+- Point-in-time derivation engine (`derive`, `per_period`, `fill_missing` macros): derived values are re-versioned whenever an input is restated.
+- Derivations: Q2/Q3/Q4 from year-to-date figures, net income from ProfitLoss − NCI, bank revenue, gross profit, total liabilities, equity incl. NCI, long-term debt, free cash flow, margins.
+- Gold: `fct_financials` (versioned), `fct_financials_latest`, `dim_fiscal_period`, `dim_concept`, all with enforced contracts; `as_of()` macro.
+- Quality: `quality.identity_checks` (balance sheet and gross profit), calibrated failure-rate gates, exact FCF identity, ≥ 95% coverage test, and 30 golden values read from 10-K statements and checked as known the day after filing.
+- `finfacts query <file.sql>` and `make demo-query` (Apple quarterly revenue FY2015-latest).
+- CI fixtures widened to 8 companies and 20 concepts so derivations run in CI; full-data tests are tagged `full_data` and excluded there.
+
+### Changed (approved)
+- Identity gates: the plan's 1% failure cap became calibrated gates (balance sheet ≤ 2.5%, gross profit ≤ 6%) set just above measured rates.
+
+### Fixed (found by the new tests)
+- Fiscal year ends listed in the first week of a month (J&J `0103`) labelled every year one year late; now normalised to the previous month end.
+- Utilities' total revenue ranked below the ASC 606 subset tags (NextEra off by $1.6 bn).
+- Companies that never tag `NetIncomeLoss` (e.g. ITW) had no net income; coverage 89.5% → 97.7%.
+- Missing temporary-equity concepts made balance sheets fail the identity check (4.1% → 1.96%).
+- A tagged "equity incl. NCI" far below parent equity (Agilent: −$305M) is now rejected as a tagging error.
+
+### Known limitation
+- 13 companies that re-registered under a successor CIK (e.g. ExxonMobil, Disney, Broadcom, BlackRock) lack history before the reorganisation.
+
 ## [0.2.0] – 2026-10-20 – Milestone 2: silver layer and daily incremental
 
 ### Added

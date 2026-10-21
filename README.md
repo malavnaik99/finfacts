@@ -18,8 +18,8 @@ FinFacts turns S&P 500 filings (FY2015 to today) into a tested star schema with 
 |---|---|
 | 1. Foundations and bulk ingestion (local) | ✅ done |
 | 2. Silver layer and daily incremental | ✅ done |
-| 3. Concept mapping and gold mart | ⏳ next |
-| 4. GCP, write-audit-publish, scheduling | — |
+| 3. Concept mapping and gold mart | ✅ done |
+| 4. GCP, write-audit-publish, scheduling | ⏳ next |
 | 5. Semantic layer and data-health page | — |
 | 6. AI outputs (eval set, 10-K embeddings) | — |
 
@@ -35,6 +35,7 @@ make test                     # unit tests, no network
 make backfill-local           # ~3 GB download once; lands ~500 companies in data/bronze/
 make incremental              # daily: pulls only companies with new 10-K/10-Q filings
 make build                    # flatten to parquet + dbt build (models and tests) on DuckDB
+make demo-query               # Apple quarterly revenue FY2015-latest from the gold mart
 make ci                       # lint, types, unit tests, dbt build on offline fixtures
 ```
 
@@ -70,6 +71,34 @@ where cik = 19617 and concept = 'Revenues' and period_start = '2019-01-01' and p
 
 **[docs/silver-layer.md](docs/silver-layer.md)** explains the rules and seven real data quirks the tests caught, e.g. proxy statements whose rounded pay-versus-performance figures look like restatements.
 
+## Gold mart: certified, point-in-time metrics
+
+21 certified metrics (revenue, net income, margins, free cash flow, balance-sheet totals and more) for 498 companies, FY2015 to today.
+
+| Table | Grain |
+|---|---|
+| `gold.fct_financials` | company × metric × fiscal period × **version** (654k rows) |
+| `gold.fct_financials_latest` | current value of each company × metric × fiscal period (view) |
+| `gold.dim_concept` | metric definitions and the XBRL concepts each accepts, in priority order |
+| `gold.dim_fiscal_period` | fiscal calendar: Q1–Q4, Q2_YTD, Q3_YTD and FY per company and year |
+| `gold.dim_company`, `gold.dim_period` | companies (SCD2) and every reported date range |
+
+Every value carries `source_concept` (the XBRL tag or the derivation rule), `accession_number`, `is_derived` and its validity dates. To ask what was known on a date:
+
+```sql
+select metric_id, fiscal_year, value
+from gold.fct_financials
+where cik = 19617 and fiscal_period = 'FY'
+  and valid_from <= date '2021-06-01'
+  and (valid_to is null or valid_to > date '2021-06-01')
+```
+
+Inside dbt models the same filter is `{{ as_of("'2021-06-01'") }}`.
+
+Q4 is almost never filed as a 3-month figure, so FinFacts derives it as FY − 9M. Cash-flow quarters are derived from year-to-date figures. When an input is restated, the derived value gets a new version too. The mapping rules, every decision and its verification are in **[docs/concept_mapping.md](docs/concept_mapping.md)**.
+
+**Verified:** 30/30 golden values read from 10-K statements match FinFacts as known the day after filing. Coverage of revenue, net income and total assets is ≥ 97.7% of company-years. Balance-sheet identity failures are 1.96% (gate 2.5%) and gross-profit identity failures 5.1% (gate 6%). The failures are listed in `quality.identity_checks`.
+
 ### Measured (2026-10-20, Windows laptop, home broadband)
 
 | | Result |
@@ -83,6 +112,7 @@ where cik = 19617 and concept = 'Revenues' and period_start = '2019-01-01' and p
 | Incremental, first run after backfill | 500 checked, 6 new 10-Q/10-K, 6 pulled, ~2 min |
 | Incremental rerun | 500 checked, 0 pulled |
 | Facts restated at least once | 228,594 of 4.92 M (4.6%) |
+| Full `dbt build` incl. gold (61 models/tests) | ~60 s |
 
 ## Repo layout
 
@@ -90,7 +120,9 @@ where cik = 19617 and concept = 'Revenues' and period_start = '2019-01-01' and p
 src/finfacts/      Python package and `finfacts` CLI
   sec/             rate-limited SEC client
   ingest/          universe, bulk backfill, incremental, flatten
-dbt/               dbt project: staging -> intermediate (silver) -> marts (gold)
+dbt/               dbt project: staging -> intermediate (silver) -> marts (gold) -> quality
+  seeds/           metric catalogue, concept map, golden values
+queries/           example SQL (`finfacts query <file>`)
 config/            site URL, universe snapshots
 docs/              design notes and data-quality findings
 scripts/           fixture generation

@@ -1,15 +1,17 @@
 name: finfacts
-version: "0.2.0"
+version: "0.3.0"
 config-version: 2
 profile: finfacts
 
 model-paths: ["models"]
+seed-paths: ["seeds"]
 macro-paths: ["macros"]
 test-paths: ["tests"]
 target-path: "target"
 
 vars:
   min_period_end: "2014-01-01"  # FY2015 needs prior-year comparatives
+  min_fiscal_year: 2015
   in_scope_taxonomies: ["us-gaap", "dei"]
   # Filings that carry financial statements. Excludes proxies (DEF 14A pay-vs-performance
   # tables tag NetIncomeLoss rounded to $0.1B) and registration statements. 8-K stays: it
@@ -30,6 +32,17 @@ models:
       +schema: gold
       +contract:
         enforced: true
+    quality:
+      +materialized: table
+      +schema: quality
+
+seeds:
+  finfacts:
+    +schema: reference
+    metrics:
+      +column_types: {is_certified: boolean, quarter_derivable: boolean}
+    golden_values:
+      +column_types: {cik: bigint, expected_value: bigint, tolerance: bigint, as_of_date: date}
 
 flags:
   send_anonymous_usage_stats: false
