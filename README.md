@@ -1,6 +1,7 @@
 # FinFacts
 
 [![ci](https://github.com/malavnaik99/finfacts/actions/workflows/ci.yml/badge.svg)](https://github.com/malavnaik99/finfacts/actions/workflows/ci.yml)
+[![daily](https://github.com/malavnaik99/finfacts/actions/workflows/daily.yml/badge.svg)](https://github.com/malavnaik99/finfacts/actions/workflows/daily.yml)
 
 **Certified, point-in-time-correct SEC EDGAR fundamentals, so analysts, a text-to-SQL agent and an MCP server all get the same answer.**
 
@@ -19,8 +20,8 @@ FinFacts turns S&P 500 filings (FY2015 to today) into a tested star schema with 
 | 1. Foundations and bulk ingestion (local) | ✅ done |
 | 2. Silver layer and daily incremental | ✅ done |
 | 3. Concept mapping and gold mart | ✅ done |
-| 4. GCP, write-audit-publish, scheduling | ⏳ next |
-| 5. Semantic layer and data-health page | — |
+| 4. GCP, write-audit-publish, scheduling | ✅ done |
+| 5. Semantic layer and data-health page | ⏳ next |
 | 6. AI outputs (eval set, 10-K embeddings) | — |
 
 ## Quickstart (Windows, macOS or Linux)
@@ -37,6 +38,14 @@ make incremental              # daily: pulls only companies with new 10-K/10-Q f
 make build                    # flatten to parquet + dbt build (models and tests) on DuckDB
 make demo-query               # Apple quarterly revenue FY2015-latest from the gold mart
 make ci                       # lint, types, unit tests, dbt build on offline fixtures
+```
+
+Cloud (after `gcloud auth application-default login`, with `GCP_PROJECT_ID` and `GCS_BUCKET` in `.env`):
+
+```bash
+make load-bq                  # parquet in GCS -> BigQuery raw (free load jobs)
+make bq-build                 # build + test everything in the `audit` dataset
+make publish                  # copy audited gold tables to `gold`
 ```
 
 `make help` lists every target.
@@ -99,6 +108,34 @@ Q4 is almost never filed as a 3-month figure, so FinFacts derives it as FY − 9
 
 **Verified:** 30/30 golden values read from 10-K statements match FinFacts as known the day after filing. Coverage of revenue, net income and total assets is ≥ 97.7% of company-years. Balance-sheet identity failures are 1.96% (gate 2.5%) and gross-profit identity failures 5.1% (gate 6%). The failures are listed in `quality.identity_checks`.
 
+## Production: daily run on GCP with write-audit-publish
+
+Every morning (06:30 UTC) a GitHub Actions workflow ([`daily.yml`](.github/workflows/daily.yml)) runs the same `finfacts` CLI and dbt project as your laptop:
+
+```
+SEC submissions ─► incremental load ─► flatten ─► GCS (append-only)
+                                                     │  load jobs (free)
+                                                     ▼
+                         BigQuery raw ─► dbt build + every test in `audit`
+                                                     │  only if ALL tests pass
+                                                     ▼
+                                     finfacts publish: copy tables to `gold`
+```
+
+- **Write-audit-publish.** Nothing reaches `gold` unless the whole build and all its tests pass in `audit`. A failed run stops before `publish`, GitHub emails the failure, and `gold` keeps its last good version. A built-in drill proves it: run the workflow with `wap_drill: true` and one test fails on purpose. Verified on 2026-10-21: publish was skipped and `gold.fct_financials` kept its timestamp.
+- **No keys anywhere.** GitHub Actions signs in with Workload Identity Federation, limited to this repository's `main` branch.
+- **Append-only storage.** The pipeline's service account can create and read objects in the bucket but not delete or overwrite them, so bronze is immutable by IAM, not just by convention. Even the incremental-load state is saved as a new timestamped object each run.
+- **Cost guards.** Budget alerts at EUR 5 and EUR 15, a 5 GB limit per query, and a **hard daily cap of 50 GB scanned** per project (BigQuery refuses further queries that day).
+- **Infrastructure as code.** Everything above is in [`infra/terraform`](infra/terraform/): 26 resources.
+
+| Measured (2026-10-21) | Result |
+|---|---|
+| Daily run, end to end | ~4 min |
+| BigQuery scanned per run | 9.0 GB (79 queries) → ~270 GB/month, inside the 1 TB free tier |
+| Cost | EUR 0 so far (free tier) |
+
+The plan's target of < 2 GB per run needs incremental dbt models; today every model is rebuilt daily.
+
 ### Measured (2026-10-20, Windows laptop, home broadband)
 
 | | Result |
@@ -121,6 +158,7 @@ src/finfacts/      Python package and `finfacts` CLI
   sec/             rate-limited SEC client
   ingest/          universe, bulk backfill, incremental, flatten
 dbt/               dbt project: staging -> intermediate (silver) -> marts (gold) -> quality
+infra/terraform/   GCP: bucket, datasets, service account, Workload Identity, budget, quota
   seeds/           metric catalogue, concept map, golden values
 queries/           example SQL (`finfacts query <file>`)
 config/            site URL, universe snapshots

@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] – 2026-10-21 – Milestone 4: GCP, write-audit-publish, daily schedule
+
+### Added
+- Terraform (`infra/terraform`, 26 resources): APIs; append-only GCS bucket (pipeline can create and read, not delete or overwrite); BigQuery `raw`, `audit`, `gold`, `ops`; pipeline service account with Workload Identity Federation limited to this repo's `main` branch; EUR 5/15 budget alerts; 50 GB/day BigQuery query quota as a hard cap.
+- `finfacts load-bq`: GCS parquet → BigQuery raw with free load jobs, loading only the newest companyfacts file per company (each holds the full history), so scans stay flat as snapshots accumulate (3.8 GB → 1.9 GB on the largest model).
+- `finfacts publish`: copies every audited gold model (from the dbt manifest) from `audit` to `gold`.
+- dbt BigQuery target: everything builds in `audit`; contracts use types both engines understand; job labels for cost per run; 5 GB per-query limit.
+- `daily.yml`: incremental → flatten → append-only upload → load → dbt build in audit → publish; state saved as new timestamped objects; dbt artifacts kept 30 days.
+- WAP drill (`assert_wap_drill`, `--vars '{wap_drill: true}'`): proven on GitHub Actions that a failing test skips publish and leaves gold untouched.
+- Predecessor-CIK mapping for 12 re-registered companies (`config/universe/predecessors.csv`), each checked against SEC. ExxonMobil, Disney, Broadcom, Cigna, Linde and others now have history from FY2015.
+
+### Changed (approved)
+- Airflow (local Astro DAG) and OpenLineage/Marquez removed from the plan: local-only demos. Lineage comes from `dbt docs`.
+
+### Fixed
+- BigQuery dialect issues: a CTE named like a column (`fiscal_year`), an aggregate alias reused in `HAVING`, `REGEXP_EXTRACT` arguments.
+
 ## [0.3.1] – 2026-10-21 – Review fixes
 
 ### Fixed
