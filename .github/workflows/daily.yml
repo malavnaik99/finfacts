@@ -89,3 +89,12 @@ jobs:
             dbt/target/run_results.json
             dbt/target/manifest.json
           retention-days: 30
+
+  pages:
+    needs: run
+    if: always()  # failures belong on the health page too
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml

@@ -1,11 +1,11 @@
 name: pages
 
-# Rebuilds the data-health page after every daily run (pass or fail, so failures show up
-# on the page) and deploys it to GitHub Pages at <site_url>/finfacts/.
+# Rebuilds the data-health page and deploys it to GitHub Pages at <site_url>/finfacts/.
+# Called by daily.yml as its last job (pass or fail, so failures show up on the page), or by
+# hand. A `workflow_run` trigger was dropped: its runs could not get BigQuery credentials
+# through Workload Identity while manual runs could.
 on:
-  workflow_run:
-    workflows: [daily]
-    types: [completed]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
