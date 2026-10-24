@@ -24,10 +24,18 @@ def test_dbt_counts(tmp_path: Path) -> None:
         json.dumps(
             {
                 "results": [
-                    {"unique_id": "model.finfacts.a", "status": "success"},
+                    {
+                        "unique_id": "model.finfacts.a",
+                        "status": "success",
+                        "adapter_response": {"bytes_billed": 1000},
+                    },
                     {"unique_id": "seed.finfacts.s", "status": "success"},
                     {"unique_id": "model.finfacts.b", "status": "error"},
-                    {"unique_id": "test.finfacts.t1", "status": "pass"},
+                    {
+                        "unique_id": "test.finfacts.t1",
+                        "status": "pass",
+                        "adapter_response": {"bytes_billed": 10},
+                    },
                     {"unique_id": "test.finfacts.t2", "status": "warn"},
                     {"unique_id": "test.finfacts.t3", "status": "fail"},
                     {"unique_id": "unit_test.finfacts.u", "status": "pass"},
@@ -42,5 +50,7 @@ def test_dbt_counts(tmp_path: Path) -> None:
         "tests_pass": 2,
         "tests_warn": 1,
         "tests_fail": 1,
+        "queries": 2,
+        "bytes_billed": 1010,
     }
     assert dbt_counts(tmp_path / "missing.json")["tests_pass"] == 0

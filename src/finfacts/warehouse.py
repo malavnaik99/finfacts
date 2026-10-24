@@ -134,14 +134,32 @@ RUN_LOG_SCHEMA = [
 
 
 def dbt_counts(run_results_path: Path) -> dict[str, int]:
-    """Model and test outcomes from a dbt run_results.json (zeros if dbt never ran)."""
+    """Model and test outcomes, queries and bytes billed from a dbt run_results.json.
+
+    BigQuery reports bytes billed per node in `adapter_response`, so the cost of a run needs
+    no access to project job history. Load and copy jobs outside dbt are free.
+    Zeros if dbt never ran.
+    """
     counts = dict.fromkeys(
-        ("models_ok", "models_error", "tests_pass", "tests_warn", "tests_fail"), 0
+        (
+            "models_ok",
+            "models_error",
+            "tests_pass",
+            "tests_warn",
+            "tests_fail",
+            "queries",
+            "bytes_billed",
+        ),
+        0,
     )
     if not run_results_path.exists():
         return counts
     for r in json.loads(run_results_path.read_text(encoding="utf-8"))["results"]:
         kind, status = r["unique_id"].split(".")[0], r["status"]
+        billed = (r.get("adapter_response") or {}).get("bytes_billed")
+        if billed is not None:
+            counts["queries"] += 1
+            counts["bytes_billed"] += int(billed)
         if kind in ("model", "seed"):
             counts["models_ok" if status == "success" else "models_error"] += 1
         elif kind in ("test", "unit_test"):
@@ -153,20 +171,8 @@ def dbt_counts(run_results_path: Path) -> dict[str, int]:
 def record_run(client: bigquery.Client, row: dict[str, object], dataset: str = "ops") -> None:
     """Append one run to ops.run_log with a load job (free, unlike streaming inserts).
 
-    Adds the bytes billed by the caller's own query jobs since the run started and the newest
-    periodic filing in the audited warehouse (data freshness).
+    Adds the newest periodic filing in the audited warehouse (data freshness).
     """
-    stats_sql = """
-        select count(*) as queries, coalesce(sum(total_bytes_billed), 0) as bytes_billed
-        from `region-us`.INFORMATION_SCHEMA.JOBS_BY_USER  -- own jobs: no listAll permission needed
-        where job_type = 'QUERY' and creation_time >= @started_at
-    """
-    params = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("started_at", "TIMESTAMP", str(row["started_at"]))
-        ]
-    )
-    stats = next(iter(client.query(stats_sql, job_config=params).result()))
     fresh_sql = """
         select max(accepted_at) as latest
         from audit.stg_filings where form in ('10-K', '10-Q', '10-K/A', '10-Q/A')
@@ -175,12 +181,7 @@ def record_run(client: bigquery.Client, row: dict[str, object], dataset: str = "
         latest = next(iter(client.query(fresh_sql).result())).latest
     except Exception:  # audit tables may not exist if the run failed before dbt
         latest = None
-    row = {
-        **row,
-        "queries": stats.queries,
-        "bytes_billed": stats.bytes_billed,
-        "latest_filing_accepted_at": latest.isoformat() if latest else None,
-    }
+    row = {**row, "latest_filing_accepted_at": latest.isoformat() if latest else None}
     config = bigquery.LoadJobConfig(
         schema=RUN_LOG_SCHEMA,
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
