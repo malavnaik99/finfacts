@@ -153,12 +153,12 @@ def dbt_counts(run_results_path: Path) -> dict[str, int]:
 def record_run(client: bigquery.Client, row: dict[str, object], dataset: str = "ops") -> None:
     """Append one run to ops.run_log with a load job (free, unlike streaming inserts).
 
-    Adds the bytes billed by this project's query jobs since the run started and the newest
+    Adds the bytes billed by the caller's own query jobs since the run started and the newest
     periodic filing in the audited warehouse (data freshness).
     """
     stats_sql = """
         select count(*) as queries, coalesce(sum(total_bytes_billed), 0) as bytes_billed
-        from `region-us`.INFORMATION_SCHEMA.JOBS
+        from `region-us`.INFORMATION_SCHEMA.JOBS_BY_USER  -- own jobs: no listAll permission needed
         where job_type = 'QUERY' and creation_time >= @started_at
     """
     params = bigquery.QueryJobConfig(
