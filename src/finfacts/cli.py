@@ -109,6 +109,7 @@ def _bq() -> "bigquery.Client":
 
 RAW_MANIFEST = Path("data/raw_manifest.json")
 DBT_VARS = Path("data/dbt_vars.json")
+DBT_FULL_REFRESH = Path("data/dbt_full_refresh")
 
 
 @app.command("load-bq")
@@ -117,8 +118,9 @@ def load_bq_cmd(
 ) -> None:
     """Replace BigQuery raw tables from GCS and plan which companies dbt must rebuild.
 
-    Writes data/dbt_vars.json (empty = full rebuild) and data/raw_manifest.json, which
-    `finfacts mark-built` records after a successful publish.
+    Writes data/dbt_vars.json (empty = full rebuild), data/dbt_full_refresh ("true" when
+    there is no successful build to be incremental on, e.g. the first run or after a failed
+    migration) and data/raw_manifest.json, which `finfacts mark-built` records after publish.
     """
     import google.cloud.storage as storage
 
@@ -147,6 +149,7 @@ def load_bq_cmd(
         )
     DBT_VARS.parent.mkdir(parents=True, exist_ok=True)
     DBT_VARS.write_text(json.dumps(dbt_vars), encoding="utf-8")
+    DBT_FULL_REFRESH.write_text("true" if built is None else "false", encoding="utf-8")
     RAW_MANIFEST.write_text(json.dumps({str(k): v for k, v in current.items()}), encoding="utf-8")
 
 

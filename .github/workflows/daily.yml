@@ -73,8 +73,12 @@ jobs:
         run: |
           # company scope from load-bq ({} = everything) plus the drill switch
           VARS=$(jq -c --argjson drill ${{ inputs.wap_drill || false }} '. + {wap_drill: $drill}' data/dbt_vars.json)
-          uv run dbt build --project-dir dbt --profiles-dir dbt --target bq --vars "$VARS" \
-            ${{ inputs.full_refresh && '--full-refresh' || '' }}
+          # full refresh when asked, or when there is no successful build to be incremental on
+          FULL=""
+          if [ "${{ inputs.full_refresh || false }}" = "true" ] || [ "$(cat data/dbt_full_refresh)" = "true" ]; then
+            FULL="--full-refresh"
+          fi
+          uv run dbt build --project-dir dbt --profiles-dir dbt --target bq --vars "$VARS" $FULL
 
       - name: Publish to gold (only reached when every test passed)
         run: uv run finfacts publish
