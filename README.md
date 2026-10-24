@@ -3,6 +3,8 @@
 [![ci](https://github.com/malavnaik99/finfacts/actions/workflows/ci.yml/badge.svg)](https://github.com/malavnaik99/finfacts/actions/workflows/ci.yml)
 [![daily](https://github.com/malavnaik99/finfacts/actions/workflows/daily.yml/badge.svg)](https://github.com/malavnaik99/finfacts/actions/workflows/daily.yml)
 
+**Live data-health page: https://malavnaik99.github.io/finfacts/** (rebuilt after every daily run)
+
 **Certified, point-in-time-correct SEC EDGAR fundamentals, so analysts, a text-to-SQL agent and an MCP server all get the same answer.**
 
 Raw SEC XBRL data is hard to query consistently:
@@ -21,8 +23,8 @@ FinFacts turns S&P 500 filings (FY2015 to today) into a tested star schema with 
 | 2. Silver layer and daily incremental | ✅ done |
 | 3. Concept mapping and gold mart | ✅ done |
 | 4. GCP, write-audit-publish, scheduling | ✅ done |
-| 5. Semantic layer and data-health page | ⏳ next |
-| 6. AI outputs (eval set, 10-K embeddings) | — |
+| 5. Semantic layer and data-health page | ✅ done |
+| 6. AI outputs (eval set, 10-K embeddings) | ⏳ next |
 
 ## Quickstart (Windows, macOS or Linux)
 
@@ -108,6 +110,35 @@ Q4 is almost never filed as a 3-month figure, so FinFacts derives it as FY − 9
 
 **Verified:** 30/30 golden values read from 10-K statements match FinFacts as known the day after filing. Coverage of revenue, net income and total assets is ≥ 97.7% of company-years. Balance-sheet identity failures are 1.96% (gate 2.5%) and gross-profit identity failures 5.1% (gate 6%). The failures are listed in `quality.identity_checks`.
 
+## Semantic layer: one definition per metric
+
+The 21 certified metrics are defined once in dbt's semantic layer ([`dbt/models/semantic/_semantic.yml`](dbt/models/semantic/_semantic.yml), MetricFlow). Humans, the text-to-SQL agent and the MCP server all ask the same definitions:
+
+```bash
+cd dbt && DBT_PROFILES_DIR=. FINFACTS_DUCKDB_PATH=../data/finfacts.duckdb uv run mf query \
+  --metrics revenue,net_income,net_margin \
+  --group-by company__ticker,metric_time__year \
+  --where "{{ Dimension('company__ticker') }} = 'AAPL'"
+```
+
+- **Simple metrics** (revenue, net income, total assets …) read the current certified value for the fiscal year. Quarterly variants exist for revenue, net income and operating cash flow.
+- **Margins are ratio metrics** (profit ÷ revenue as a ratio of sums), so a sector's margin is weighted by revenue rather than an average of company margins.
+- **Free cash flow is a derived metric**: operating cash flow − capex.
+- **`metric_time__year` is the fiscal year.** Annual metrics use a fiscal-year time axis. Using period end dates would put two fiscal years into one calendar year for 25 company-years of 52/53-week companies (e.g. J&J 2023).
+- **Checked in CI:** `make semantic-check` asserts that MetricFlow's revenue by company and fiscal year equals plain SQL on gold. Result: 5,320 company-years, 0 differences.
+
+## Data-health page
+
+[malavnaik99.github.io/finfacts](https://malavnaik99.github.io/finfacts/) is an [Evidence](https://evidence.dev) site ([`health/`](health/)) rebuilt by [`pages.yml`](.github/workflows/pages.yml) after every daily run, pass or fail. It shows:
+
+- last run status and data freshness (hours since the newest 10-K/10-Q);
+- test pass rate and BigQuery cost per run, from `ops.run_log`, which `finfacts record-run` writes after each run using bytes billed per dbt node;
+- coverage of core metrics by fiscal year;
+- accounting-identity failure rates against their limits;
+- recent runs.
+
+Its build-time queries scan a few MB of BigQuery. The page itself is static (no live credentials).
+
 ## Production: daily run on GCP with write-audit-publish
 
 Every morning (06:30 UTC) a GitHub Actions workflow ([`daily.yml`](.github/workflows/daily.yml)) runs the same `finfacts` CLI and dbt project as your laptop:
@@ -159,6 +190,7 @@ src/finfacts/      Python package and `finfacts` CLI
   ingest/          universe, bulk backfill, incremental, flatten
 dbt/               dbt project: staging -> intermediate (silver) -> marts (gold) -> quality
 infra/terraform/   GCP: bucket, datasets, service account, Workload Identity, budget, quota
+health/            Evidence data-health page (GitHub Pages)
   seeds/           metric catalogue, concept map, golden values
 queries/           example SQL (`finfacts query <file>`)
 config/            site URL, universe snapshots

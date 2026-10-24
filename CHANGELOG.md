@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] – 2026-10-24 – Milestone 5: semantic layer and data-health page
+
+### Added
+- MetricFlow semantic layer (`dbt/models/semantic/`): 21 certified metrics (17 simple, 3 ratio margins, derived free cash flow) plus quarterly revenue, net income and operating cash flow; time spine; current-company model.
+- `scripts/check_semantic_layer.py` / `make semantic-check`: MetricFlow revenue by company and fiscal year must equal plain SQL on gold (5,320 company-years, 0 differences); runs in `make ci` on the fixtures.
+- `finfacts record-run` and `ops.run_log`: status, dbt model/test outcomes, queries and bytes billed (from dbt's per-node adapter responses), and data freshness for every daily run, pass or fail (load job, parameterised SQL).
+- Evidence data-health page (`health/`) and `pages.yml`: rebuilt after every daily run and deployed to https://malavnaik99.github.io/finfacts/.
+
+### Fixed
+- Annual metrics on period end dates would merge two fiscal years in one calendar year for 25 company-years of 52/53-week companies; they now use a fiscal-year time axis (`fiscal_year_date` on `fct_financials_latest`).
+
 ## [0.4.0] – 2026-10-21 – Milestone 4: GCP, write-audit-publish, daily schedule
 
 ### Added

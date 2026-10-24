@@ -1,6 +1,6 @@
 [project]
 name = "finfacts"
-version = "0.4.0"
+version = "0.5.0"
 description = "Certified, point-in-time-correct SEC EDGAR fundamentals for humans and LLM agents."
 readme = "README.md"
 license = "MIT"

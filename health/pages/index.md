@@ -44,17 +44,17 @@ BigQuery bytes billed per daily run. A hard project quota stops queries at 50 GB
 select started_at, gb_billed, minutes, status from finfacts.runs order by started_at
 ```
 
-<LineChart data={runs_chart} x=started_at y=gb_billed yAxisTitle="GB billed" />
+<LineChart data={runs_chart} x=started_at y=gb_billed yAxisTitle="GB billed" markers=true />
 
 ## Coverage of core metrics
 
 Share of company fiscal years with revenue, net income and total assets. Gate: at least 95% overall.
 
 ```sql coverage
-select cast(fiscal_year as varchar) as fiscal_year, metric_id, coverage from finfacts.coverage order by fiscal_year
+select fiscal_year, metric_id, coverage from finfacts.coverage order by fiscal_year
 ```
 
-<LineChart data={coverage} x=fiscal_year y=coverage series=metric_id yFmt=pct0 yMin=0.8 />
+<LineChart data={coverage} x=fiscal_year xFmt=id y=coverage series=metric_id yFmt=pct0 yMin=0.8 />
 
 ## Accounting identity checks
 
