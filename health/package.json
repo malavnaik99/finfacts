@@ -1,6 +1,7 @@
 {
   "name": "finfacts-health",
   "private": true,
+  "type": "module",
   "description": "FinFacts data-health page (Evidence), deployed to GitHub Pages.",
   "scripts": {
     "sources": "evidence sources",

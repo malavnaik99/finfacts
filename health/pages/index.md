@@ -51,7 +51,7 @@ select started_at, gb_billed, minutes, status from finfacts.runs order by starte
 Share of company fiscal years with revenue, net income and total assets. Gate: at least 95% overall.
 
 ```sql coverage
-select fiscal_year, metric_id, coverage from finfacts.coverage order by fiscal_year
+select cast(fiscal_year as varchar) as fiscal_year, metric_id, coverage from finfacts.coverage order by fiscal_year
 ```
 
 <LineChart data={coverage} x=fiscal_year y=coverage series=metric_id yFmt=pct0 yMin=0.8 />

@@ -1,0 +1,55 @@
+name: pages
+
+# Rebuilds the data-health page after every daily run (pass or fail, so failures show up
+# on the page) and deploys it to GitHub Pages at <site_url>/finfacts/.
+on:
+  workflow_run:
+    workflows: [daily]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write  # Workload Identity for BigQuery, and the Pages deployment token
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: health
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: health/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SA }}
+      - name: Query BigQuery (a few MB) and build the static site
+        run: |
+          npm run sources
+          npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: health/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
