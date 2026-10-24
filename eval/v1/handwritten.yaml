@@ -1,0 +1,333 @@
+# Hand-written hard questions for FinFacts eval v1. Gold SQL runs on the `semantic` schema
+# of the frozen snapshot (DuckDB). Answer types: number (0.5% tolerance), integer (exact),
+# ticker (any of the company's tickers), ticker_set (same companies, any order), text.
+
+- question: Which five S&P 500 companies had the highest free cash flow in fiscal year 2024? List their tickers.
+  category: top_n
+  answer_type: ticker_set
+  gold_sql: |
+    select c.tickers from semantic.financials as f join semantic.companies as c using (cik)
+    where f.metric_id = 'free_cash_flow' and f.fiscal_year = 2024 and f.fiscal_period = 'FY'
+    order by f.value desc limit 5
+
+- question: How many S&P 500 companies reported a net loss in fiscal year 2023?
+  category: count
+  answer_type: integer
+  gold_sql: |
+    select count(*) from semantic.financials
+    where metric_id = 'net_income' and fiscal_year = 2023 and fiscal_period = 'FY' and value < 0
+
+- question: What was the median net margin, in percent, of Information Technology companies in fiscal year 2024?
+  category: statistic
+  answer_type: number
+  gold_sql: |
+    select median(f.value) * 100 from semantic.financials as f join semantic.companies as c using (cik)
+    where c.gics_sector = 'Information Technology' and f.metric_id = 'net_margin'
+      and f.fiscal_year = 2024 and f.fiscal_period = 'FY'
+
+- question: What was Walmart's (WMT) revenue in fiscal year 2025, the year that ended in January 2025 (USD)?
+  category: fiscal_calendar
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 104169 and metric_id = 'revenue'
+      and fiscal_year = 2025 and fiscal_period = 'FY'
+
+- question: What was Johnson & Johnson's (JNJ) net income for the fiscal year that ended on 31 December 2023 (USD)?
+  category: fiscal_calendar
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 200406 and metric_id = 'net_income'
+      and fiscal_period = 'FY' and period_end = date '2023-12-31'
+
+- question: What was ExxonMobil's (XOM) revenue in fiscal year 2016 (USD)?
+  category: predecessor
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 2115436 and metric_id = 'revenue'
+      and fiscal_year = 2016 and fiscal_period = 'FY'
+
+- question: What was JPMorgan Chase's (JPM) total net revenue in fiscal year 2023 (USD)?
+  category: bank
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 19617 and metric_id = 'revenue'
+      and fiscal_year = 2023 and fiscal_period = 'FY'
+
+- question: What was Apple's (AAPL) revenue in its fiscal fourth quarter of 2024 (USD)?
+  category: derived_quarter
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 320193 and metric_id = 'revenue'
+      and fiscal_year = 2024 and fiscal_period = 'Q4'
+
+- question: What was NVIDIA's (NVDA) revenue for the fiscal quarter that ended in October 2024 (USD)?
+  category: fiscal_calendar
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 1045810 and metric_id = 'revenue'
+      and fiscal_period in ('Q1', 'Q2', 'Q3', 'Q4')
+      and period_end between date '2024-10-01' and date '2024-10-31'
+
+- question: What was Microsoft's (MSFT) average quarterly revenue in fiscal year 2025 (USD)?
+  category: statistic
+  answer_type: number
+  gold_sql: |
+    select avg(value) from semantic.financials where cik = 789019 and metric_id = 'revenue'
+      and fiscal_year = 2025 and fiscal_period in ('Q1', 'Q2', 'Q3', 'Q4')
+
+- question: What share of the combined fiscal 2024 revenue of all S&P 500 companies came from the Energy sector, in percent?
+  category: share
+  answer_type: number
+  gold_sql: |
+    select 100 * sum(case when c.gics_sector = 'Energy' then f.value end) / sum(f.value)
+    from semantic.financials as f join semantic.companies as c using (cik)
+    where f.metric_id = 'revenue' and f.fiscal_year = 2024 and f.fiscal_period = 'FY'
+
+- question: Which GICS sector had the highest aggregate net margin (total net income divided by total revenue) in fiscal year 2024? Only count companies that report both.
+  category: sector
+  answer_type: text
+  gold_sql: |
+    with reporters as (
+      select c.gics_sector, f.cik,
+             max(case when f.metric_id = 'net_income' then f.value end) as ni,
+             max(case when f.metric_id = 'revenue' then f.value end) as rev
+      from semantic.financials as f join semantic.companies as c using (cik)
+      where f.fiscal_year = 2024 and f.fiscal_period = 'FY' and f.metric_id in ('net_income', 'revenue')
+      group by 1, 2
+      having ni is not null and rev is not null
+    )
+    select gics_sector from reporters group by 1 order by sum(ni) / sum(rev) desc limit 1
+
+- question: How many companies in the S&P 500 have a fiscal year that ends in June?
+  category: count
+  answer_type: integer
+  gold_sql: |
+    select count(*) from semantic.companies where fiscal_year_end like '06%'
+
+- question: For how many fiscal years from 2015 to 2025 did Intel (INTC) report a net loss?
+  category: count
+  answer_type: integer
+  gold_sql: |
+    select count(*) from semantic.financials where cik = 50863 and metric_id = 'net_income'
+      and fiscal_period = 'FY' and fiscal_year between 2015 and 2025 and value < 0
+
+- question: What was the combined capital expenditure of Amazon, Microsoft, Alphabet and Meta in fiscal year 2024 (USD)?
+  category: aggregate
+  answer_type: number
+  gold_sql: |
+    select sum(value) from semantic.financials where cik in (1018724, 789019, 1652044, 1326801)
+      and metric_id = 'capex' and fiscal_year = 2024 and fiscal_period = 'FY'
+
+- question: What was Costco's (COST) compound annual revenue growth rate from fiscal 2019 to fiscal 2024, in percent?
+  category: growth
+  answer_type: number
+  gold_sql: |
+    select (power(cur.value / base.value, 1.0 / 5) - 1) * 100 from
+      (select value from semantic.financials where cik = 909832 and metric_id = 'revenue'
+         and fiscal_year = 2024 and fiscal_period = 'FY') as cur,
+      (select value from semantic.financials where cik = 909832 and metric_id = 'revenue'
+         and fiscal_year = 2019 and fiscal_period = 'FY') as base
+
+- question: What was Meta Platforms' (META) operating margin in fiscal year 2022, in percent?
+  category: margin
+  answer_type: number
+  gold_sql: |
+    select value * 100 from semantic.financials where cik = 1326801 and metric_id = 'operating_margin'
+      and fiscal_year = 2022 and fiscal_period = 'FY'
+
+- question: Which three S&P 500 companies had the most long-term debt at the end of fiscal year 2024? List their tickers.
+  category: top_n
+  answer_type: ticker_set
+  gold_sql: |
+    select c.tickers from semantic.financials as f join semantic.companies as c using (cik)
+    where f.metric_id = 'long_term_debt' and f.fiscal_year = 2024 and f.fiscal_period = 'FY'
+    order by f.value desc limit 3
+
+- question: By how much did Tesla's (TSLA) gross profit change from fiscal 2023 to fiscal 2024, in USD (negative if it fell)?
+  category: growth
+  answer_type: number
+  gold_sql: |
+    select cur.value - prev.value from
+      (select value from semantic.financials where cik = 1318605 and metric_id = 'gross_profit'
+         and fiscal_year = 2024 and fiscal_period = 'FY') as cur,
+      (select value from semantic.financials where cik = 1318605 and metric_id = 'gross_profit'
+         and fiscal_year = 2023 and fiscal_period = 'FY') as prev
+
+- question: What were Coca-Cola's (KO) dividend payments in fiscal year 2024 (USD)?
+  category: value
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 21344 and metric_id = 'dividends_paid'
+      and fiscal_year = 2024 and fiscal_period = 'FY'
+
+- question: What was the total net income of all S&P 500 companies in fiscal year 2023 (USD)?
+  category: aggregate
+  answer_type: number
+  gold_sql: |
+    select sum(value) from semantic.financials
+    where metric_id = 'net_income' and fiscal_year = 2023 and fiscal_period = 'FY'
+
+- question: How many S&P 500 companies have had their fiscal 2022 revenue restated at least once?
+  category: restatements
+  answer_type: integer
+  gold_sql: |
+    select count(distinct cik) from semantic.financials_history
+    where metric_id = 'revenue' and fiscal_year = 2022 and fiscal_period = 'FY' and is_restatement
+
+- question: Among S&P 500 companies with fiscal 2024 revenue above 50 billion USD, which had the highest R&D expense as a share of revenue? Answer with its ticker.
+  category: ranking
+  answer_type: ticker
+  gold_sql: |
+    with x as (
+      select cik,
+             max(case when metric_id = 'research_and_development' then value end) as rnd,
+             max(case when metric_id = 'revenue' then value end) as rev
+      from semantic.financials where fiscal_year = 2024 and fiscal_period = 'FY'
+      group by cik
+    )
+    select c.tickers from x join semantic.companies as c using (cik)
+    where rev > 50e9 and rnd is not null order by rnd / rev desc limit 1
+
+- question: Among S&P 500 companies with fiscal 2024 revenue above 10 billion USD, which had the lowest net margin? Answer with its ticker.
+  category: ranking
+  answer_type: ticker
+  gold_sql: |
+    with x as (
+      select cik,
+             max(case when metric_id = 'net_income' then value end) as ni,
+             max(case when metric_id = 'revenue' then value end) as rev
+      from semantic.financials where fiscal_year = 2024 and fiscal_period = 'FY'
+      group by cik
+    )
+    select c.tickers from x join semantic.companies as c using (cik)
+    where rev > 10e9 and ni is not null order by ni / rev limit 1
+
+- question: What was Apple's (AAPL) diluted earnings per share in fiscal year 2022 (USD)?
+  category: value
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 320193 and metric_id = 'eps_diluted'
+      and fiscal_year = 2022 and fiscal_period = 'FY'
+
+- question: As first reported, what was IBM's revenue for fiscal year 2019 (USD)?
+  category: as_reported
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials_history where cik = 51143 and metric_id = 'revenue'
+      and fiscal_year = 2019 and fiscal_period = 'FY' and version_no = 1
+
+- question: What is the current (latest restated) value of IBM's fiscal 2019 revenue (USD)?
+  category: restatements
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 51143 and metric_id = 'revenue'
+      and fiscal_year = 2019 and fiscal_period = 'FY'
+
+- question: What was the combined revenue of Chevron and ExxonMobil in fiscal year 2022 (USD)?
+  category: aggregate
+  answer_type: number
+  gold_sql: |
+    select sum(value) from semantic.financials where cik in (93410, 2115436)
+      and metric_id = 'revenue' and fiscal_year = 2022 and fiscal_period = 'FY'
+
+- question: What was Netflix's (NFLX) free cash flow in fiscal year 2021 (USD)?
+  category: value
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 1065280 and metric_id = 'free_cash_flow'
+      and fiscal_year = 2021 and fiscal_period = 'FY'
+
+- question: Which Health Care company in the S&P 500 had the largest total assets at the end of fiscal year 2024? Answer with its ticker.
+  category: ranking
+  answer_type: ticker
+  gold_sql: |
+    select c.tickers from semantic.financials as f join semantic.companies as c using (cik)
+    where c.gics_sector = 'Health Care' and f.metric_id = 'total_assets'
+      and f.fiscal_year = 2024 and f.fiscal_period = 'FY'
+    order by f.value desc limit 1
+
+- question: What was the gross margin of AMD in fiscal year 2023, in percent?
+  category: margin
+  answer_type: number
+  gold_sql: |
+    select value * 100 from semantic.financials where cik = 2488 and metric_id = 'gross_margin'
+      and fiscal_year = 2023 and fiscal_period = 'FY'
+
+- question: In which fiscal year between 2015 and 2025 did Boeing (BA) report its largest net loss? Answer with the year.
+  category: ranking
+  answer_type: integer
+  gold_sql: |
+    select fiscal_year from semantic.financials where cik = 12927 and metric_id = 'net_income'
+      and fiscal_period = 'FY' and fiscal_year between 2015 and 2025
+    order by value limit 1
+
+- question: How many S&P 500 companies reported fiscal 2024 revenue above 100 billion USD?
+  category: count
+  answer_type: integer
+  gold_sql: |
+    select count(*) from semantic.financials
+    where metric_id = 'revenue' and fiscal_year = 2024 and fiscal_period = 'FY' and value > 100e9
+
+- question: What was UnitedHealth's (UNH) revenue in the first half of fiscal 2024, i.e. year-to-date at the end of Q2 (USD)?
+  category: ytd
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 731766 and metric_id = 'revenue'
+      and fiscal_year = 2024 and fiscal_period = 'Q2_YTD'
+
+- question: What was Oracle's (ORCL) ratio of total liabilities to total assets at the end of fiscal year 2024, in percent?
+  category: ratio
+  answer_type: number
+  gold_sql: |
+    select 100 * l.value / a.value from
+      (select value from semantic.financials where cik = 1341439 and metric_id = 'total_liabilities'
+         and fiscal_year = 2024 and fiscal_period = 'FY') as l,
+      (select value from semantic.financials where cik = 1341439 and metric_id = 'total_assets'
+         and fiscal_year = 2024 and fiscal_period = 'FY') as a
+
+- question: What was Pfizer's (PFE) revenue growth from fiscal 2022 to fiscal 2023, in percent?
+  category: growth
+  answer_type: number
+  gold_sql: |
+    select (cur.value / prev.value - 1) * 100 from
+      (select value from semantic.financials where cik = 78003 and metric_id = 'revenue'
+         and fiscal_year = 2023 and fiscal_period = 'FY') as cur,
+      (select value from semantic.financials where cik = 78003 and metric_id = 'revenue'
+         and fiscal_year = 2022 and fiscal_period = 'FY') as prev
+
+- question: What was the combined fiscal 2024 net income of the four largest US banks by total assets in the S&P 500 (USD)?
+  category: aggregate
+  answer_type: number
+  gold_sql: |
+    with banks as (
+      select f.cik from semantic.financials as f join semantic.companies as c using (cik)
+      where c.gics_sector = 'Financials' and c.gics_sub_industry like '%Diversified Banks%'
+        and f.metric_id = 'total_assets' and f.fiscal_year = 2024 and f.fiscal_period = 'FY'
+      order by f.value desc limit 4
+    )
+    select sum(value) from semantic.financials where cik in (select cik from banks)
+      and metric_id = 'net_income' and fiscal_year = 2024 and fiscal_period = 'FY'
+
+- question: What was Nike's (NKE) revenue in fiscal year 2024, the year that ended in May 2024 (USD)?
+  category: fiscal_calendar
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 320187 and metric_id = 'revenue'
+      and fiscal_year = 2024 and fiscal_period = 'FY'
+
+- question: How many of the 11 GICS sectors had combined fiscal 2024 net income above 200 billion USD?
+  category: count
+  answer_type: integer
+  gold_sql: |
+    select count(*) from (
+      select c.gics_sector from semantic.financials as f join semantic.companies as c using (cik)
+      where f.metric_id = 'net_income' and f.fiscal_year = 2024 and f.fiscal_period = 'FY'
+      group by 1 having sum(f.value) > 200e9
+    )
+
+- question: What was Disney's (DIS) operating cash flow in fiscal year 2023, the year that ended in September 2023 (USD)?
+  category: fiscal_calendar
+  answer_type: number
+  gold_sql: |
+    select value from semantic.financials where cik = 1744489 and metric_id = 'operating_cash_flow'
+      and fiscal_year = 2023 and fiscal_period = 'FY'

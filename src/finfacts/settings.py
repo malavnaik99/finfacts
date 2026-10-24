@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     data_dir: Path = Path("data")
     gcp_project_id: str | None = None
     gcs_bucket: str | None = None
+    openrouter_api_key: str | None = None
+    eval_model: str = "anthropic/claude-haiku-5.5"
+    hf_token: str | None = None
 
     @field_validator("sec_user_agent")
     @classmethod

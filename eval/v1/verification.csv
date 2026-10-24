@@ -1,0 +1,16 @@
+id,question,gold_answer,sec_companyconcept_value,source_concept,status
+ff-v1-015,What was IBM's (IBM) net income in fiscal year 2024 (USD)?,6023000000.0,6023000000,us-gaap:NetIncomeLoss,match
+ff-v1-006,What was ExxonMobil's (XOM) capital expenditure in fiscal year 2019 (USD)?,24361000000.0,24361000000,us-gaap:PaymentsToAcquirePropertyPlantAndEquipment,match
+ff-v1-036,What was PepsiCo's (PEP) cash and cash equivalents in fiscal year 2020 (USD)?,8185000000.0,8185000000,us-gaap:CashAndCashEquivalentsAtCarryingValue,match
+ff-v1-020,What was AT&T's (T) diluted earnings per share in fiscal year 2018 (USD per share)?,2.85,2.85,us-gaap:EarningsPerShareDiluted,match
+ff-v1-135,What was Apple's (AAPL) diluted earnings per share in fiscal year 2022 (USD)?,6.11,6.11,us-gaap:EarningsPerShareDiluted,match
+ff-v1-017,What was ExxonMobil's (XOM) cash and cash equivalents in fiscal year 2025 (USD)?,10681000000.0,10681000000,us-gaap:CashAndCashEquivalentsAtCarryingValue,match
+ff-v1-011,What was McDonald's's (MCD) net income in fiscal year 2022 (USD)?,6177000000.0,6177000000,us-gaap:NetIncomeLoss,match
+ff-v1-016,What was Tesla's (TSLA) diluted earnings per share in fiscal year 2025 (USD per share)?,1.08,1.08,us-gaap:EarningsPerShareDiluted,match
+ff-v1-012,What was Salesforce's (CRM) R&D expense in fiscal year 2020 (USD)?,2766000000.0,2766000000,us-gaap:ResearchAndDevelopmentExpense,match
+ff-v1-107,What was Boeing's (BA) capital expenditure in fiscal year 2023 (USD)?,1527000000.0,1527000000,us-gaap:PaymentsToAcquirePropertyPlantAndEquipment,match
+ff-v1-109,What was Salesforce's (CRM) shareholders' equity in fiscal year 2022 (USD)?,58131000000.0,58131000000,us-gaap:StockholdersEquity,match
+ff-v1-009,What was Oracle's (ORCL) shareholders' equity in fiscal year 2023 (USD)?,1073000000.0,1073000000,us-gaap:StockholdersEquity,match
+ff-v1-001,What was ExxonMobil's (XOM) shareholders' equity in fiscal year 2019 (USD)?,191650000000.0,191650000000,us-gaap:StockholdersEquity,match
+ff-v1-025,What was Costco's (COST) diluted earnings per share in fiscal year 2025 (USD per share)?,18.21,18.21,us-gaap:EarningsPerShareDiluted,match
+ff-v1-013,What was Goldman Sachs's (GS) capital expenditure in fiscal year 2018 (USD)?,7982000000.0,7982000000,us-gaap:PaymentsToAcquirePropertyPlantAndEquipment,match

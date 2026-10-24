@@ -1,0 +1,63 @@
+{
+  "model": "anthropic/claude-haiku-5.5",
+  "questions": 150,
+  "conditions": {
+    "before": {
+      "accuracy": 0.6733333333333333,
+      "sql_errors": 20,
+      "by_category": {
+        "aggregate": 0.5,
+        "as_reported": 0.6666666666666666,
+        "bank": 1.0,
+        "count": 0.6,
+        "derived_quarter": 0.0,
+        "fiscal_calendar": 1.0,
+        "growth": 0.5,
+        "margin": 0.6666666666666666,
+        "predecessor": 0.0,
+        "quarterly": 0.7333333333333333,
+        "ranking": 0.6428571428571429,
+        "ratio": 1.0,
+        "restatements": 0.8571428571428571,
+        "sector": 1.0,
+        "sector_total": 0.1,
+        "share": 0.0,
+        "statistic": 0.5,
+        "top_n": 0.0,
+        "value": 0.8837209302325582,
+        "ytd": 1.0
+      }
+    },
+    "after": {
+      "accuracy": 1.0,
+      "sql_errors": 0,
+      "by_category": {
+        "aggregate": 1.0,
+        "as_reported": 1.0,
+        "bank": 1.0,
+        "count": 1.0,
+        "derived_quarter": 1.0,
+        "fiscal_calendar": 1.0,
+        "growth": 1.0,
+        "margin": 1.0,
+        "predecessor": 1.0,
+        "quarterly": 1.0,
+        "ranking": 1.0,
+        "ratio": 1.0,
+        "restatements": 1.0,
+        "sector": 1.0,
+        "sector_total": 1.0,
+        "share": 1.0,
+        "statistic": 1.0,
+        "top_n": 1.0,
+        "value": 1.0,
+        "ytd": 1.0
+      }
+    }
+  },
+  "usage": {
+    "tokens_in": 371623,
+    "tokens_out": 341046,
+    "cost_usd": 0.2077
+  }
+}

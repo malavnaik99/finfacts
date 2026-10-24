@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup check-env lint fmt typecheck test ci universe backfill-local incremental \
-        flatten build dbt-ci fixtures demo-query load-bq bq-build publish semantic-check
+        flatten build dbt-ci fixtures demo-query load-bq bq-build publish semantic-check eval-build eval text embed
 
 DBT := uv run dbt --no-use-colors
 DBT_ARGS := --project-dir dbt --profiles-dir dbt
@@ -75,3 +75,17 @@ bq-build:  ## Build and test every model in the BigQuery `audit` dataset (write-
 
 publish:  ## Copy audited gold tables to `gold` -- run only after bq-build passed (publish)
 	uv run finfacts publish
+
+# --- AI outputs (Milestone 6)
+
+eval-build:  ## Freeze the eval snapshot and rebuild eval/v1/questions.jsonl
+	uv run finfacts eval-build
+
+eval:  ## Text-to-SQL accuracy before vs after the semantic layer (needs OPENROUTER_API_KEY)
+	uv run finfacts eval
+
+text:  ## Extract Item 1A and Item 7 from FY2024+ 10-Ks (idempotent)
+	uv run finfacts text
+
+embed:  ## Chunk and embed the 10-K sections into LanceDB + parquet
+	uv run finfacts embed

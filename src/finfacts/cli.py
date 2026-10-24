@@ -15,6 +15,7 @@ from finfacts.sec.client import SecClient
 from finfacts.settings import Settings
 
 if TYPE_CHECKING:
+    import duckdb
     from google.cloud import bigquery
 
 DBT_MANIFEST = Path("dbt/target/manifest.json")
@@ -152,3 +153,110 @@ def record_run_cmd(
         **warehouse.dbt_counts(run_results),
     }
     warehouse.record_run(_bq(), row)
+
+
+TEXT_TARGETS_SQL = """
+    select f.accession_number, f.cik, cast(f.filing_date as varchar), cast(f.report_date as varchar)
+    from silver.stg_filings as f
+    join silver.stg_universe as u on f.cik = u.cik
+    where f.form = '10-K' and f.report_date >= date '2024-01-01'
+    order by f.filing_date desc
+"""
+CHUNK_META_SQL = """
+    select f.accession_number, split_part(c.tickers, ';', 1), c.name, p.fiscal_year
+    from silver.stg_filings as f
+    join gold.dim_company as c on f.cik = c.cik and c.is_current
+    left join gold.dim_fiscal_period as p
+        on p.cik = f.cik and p.fiscal_period = 'FY' and p.period_end = f.report_date
+    where f.form = '10-K'
+"""
+
+
+def _warehouse() -> "duckdb.DuckDBPyConnection":
+    import duckdb
+
+    return duckdb.connect(
+        os.environ.get("FINFACTS_DUCKDB_PATH", "data/finfacts.duckdb"), read_only=True
+    )
+
+
+@app.command("text")
+def text_cmd(workers: int = typer.Option(4, help="parallel filings")) -> None:
+    """Extract Item 1A and Item 7 from FY2024+ 10-Ks into bronze (idempotent)."""
+    from finfacts.ingest import text
+
+    s = _settings()
+    with _warehouse() as con:
+        targets = [text.Target(*r) for r in con.sql(TEXT_TARGETS_SQL).fetchall()]
+    text.extract_all(targets, s.bronze_dir, s.sec_user_agent, workers)
+
+
+@app.command("embed")
+def embed_cmd() -> None:
+    """Chunk the extracted 10-K sections and embed them into LanceDB + parquet."""
+    from finfacts.ingest import text
+
+    s = _settings()
+    with _warehouse() as con:
+        meta = {
+            a: {"ticker": t, "company": n, "fiscal_year": fy}
+            for a, t, n, fy in con.sql(CHUNK_META_SQL).fetchall()
+        }
+    chunks = list(text.iter_chunks(s.bronze_dir, meta))
+    n = text.embed_and_store(
+        chunks, s.data_dir / "lancedb", s.data_dir / "hf" / "tenk_chunks.parquet"
+    )
+    typer.echo(f"embedded {n} chunks")
+
+
+@app.command("search")
+def search_cmd(query: str, k: int = 5) -> None:
+    """Top-k 10-K chunks for a question (LanceDB)."""
+    from finfacts.ingest import text
+
+    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]  # Windows consoles
+    for h in text.search(_settings().data_dir / "lancedb", query, k):
+        typer.echo(f"{h['ticker']} FY{h['fiscal_year']} Item {h['item']}  {h['text'][:160]}...")
+
+
+EVAL_DIR = Path("eval/v1")
+EVAL_DB = Path("data/eval/finfacts_eval_v1.duckdb")
+
+
+@app.command("eval-build")
+def eval_build_cmd() -> None:
+    """Freeze the eval snapshot and (re)build eval/v1/questions.jsonl with gold answers."""
+    from finfacts.eval import build, snapshot
+
+    warehouse = Path(os.environ.get("FINFACTS_DUCKDB_PATH", "data/finfacts.duckdb"))
+    snapshot.build_snapshot(warehouse, EVAL_DB)
+    qs = build.build(EVAL_DB, EVAL_DIR / "handwritten.yaml", EVAL_DIR / "questions.jsonl")
+    typer.echo(f"{len(qs)} questions written to {EVAL_DIR / 'questions.jsonl'}")
+
+
+@app.command("eval")
+def eval_cmd(workers: int = typer.Option(4, help="parallel questions")) -> None:
+    """Text-to-SQL execution accuracy before vs after the semantic layer."""
+    from finfacts.eval import run
+
+    s = _settings()
+    if not s.openrouter_api_key:
+        raise typer.BadParameter("set OPENROUTER_API_KEY in .env")
+    out = EVAL_DIR / "results" / s.eval_model.replace("/", "__")
+    summary = run.run(
+        EVAL_DIR / "questions.jsonl", EVAL_DB, out, s.eval_model, s.openrouter_api_key, workers
+    )
+    before, after = summary["conditions"]["before"], summary["conditions"]["after"]
+    typer.echo(f"model {s.eval_model}, {summary['questions']} questions")
+    typer.echo(
+        f"  before (raw XBRL facts):   {before['accuracy']:6.1%}  "
+        f"({before['sql_errors']} SQL errors)"
+    )
+    typer.echo(
+        f"  after  (semantic layer):   {after['accuracy']:6.1%}  ({after['sql_errors']} SQL errors)"
+    )
+    for cat in after["by_category"]:
+        typer.echo(
+            f"    {cat:16} {before['by_category'][cat]:6.1%} -> {after['by_category'][cat]:6.1%}"
+        )
+    typer.echo(f"  usage: {summary['usage']}")
