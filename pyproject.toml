@@ -58,6 +58,8 @@ ignore = ["S101"]  # asserts are fine in tests
 # The eval package generates SQL text on purpose (gold SQL is the published artifact); every
 # interpolated value is a constant from the code, never user input.
 "src/finfacts/eval/*" = ["S608"]
+# Compares fixed tables from its TABLES constant; no input reaches the SQL.
+"scripts/check_incremental_equivalence.py" = ["S608"]
 
 [tool.ruff.lint.flake8-bugbear]
 # Typer declares CLI options as call defaults; they are evaluated once and never mutated.

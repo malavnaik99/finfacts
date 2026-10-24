@@ -12,8 +12,11 @@ with certified as (
 versioned as (
     select
         *,
+        -- Two versions can become known on the same day (zero-length first version); the one
+        -- that ends sooner is the earlier one. Without this tie-break the order was arbitrary.
         row_number() over (
-            partition by cik, metric_id, fiscal_year, fiscal_period order by valid_from
+            partition by cik, metric_id, fiscal_year, fiscal_period
+            order by valid_from, coalesce(valid_to, cast('9999-12-31' as date)), value
         ) as version_no
     from certified
 )

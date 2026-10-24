@@ -8,20 +8,53 @@ models:
       Repeating an unchanged value in a later filing does not create a version.
     columns:
       - name: fact_version_id
-        data_tests: [unique, not_null]
+        data_tests:
+          - unique:
+              config: &bucket_scope {where: "{{ 'cik_bucket in (' ~ (var('changed_buckets') | join(', ') or '-1') ~ ')' if var('changed_buckets', none) is not none else '1 = 1' }}"}
+          - not_null:
+              config: *bucket_scope
       - name: fact_key
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: *bucket_scope
       - name: version_no
         description: 1 = first reported value; >1 = changed in a later filing.
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: *bucket_scope
       - name: valid_from
         description: SEC acceptance date (UTC) of the filing that first reported this value.
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: *bucket_scope
       - name: valid_to
         description: Acceptance date of the next different value; null for the current version.
       - name: is_restatement
         description: True when an earlier filing reported a different value for the same fact.
     data_tests:
       - unique_combination:
+          config: *bucket_scope
           arguments:
             columns: [fact_key, version_no]
+
+unit_tests:
+  - name: derived_values_follow_input_restatements
+    description: >
+      Point-in-time derivation: when an input is restated, the derived value gets a new
+      version starting on the restatement date. Operating cash flow FY2020 is first reported
+      as 100 and restated to 120 a year later; capex is 30 throughout. Free cash flow must be
+      70 until the restatement and 90 after it.
+    model: int_metric_l2
+    given:
+      - input: ref('int_metric_l1_quarters')
+        rows:
+          - {cik: 1, metric_id: operating_cash_flow, fiscal_year: 2020, fiscal_period: FY, value: 100, valid_from: "2021-02-01", valid_to: "2022-02-01", source_concept: "us-gaap:NetCashProvidedByUsedInOperatingActivities", accession_number: a1, is_derived: false}
+          - {cik: 1, metric_id: operating_cash_flow, fiscal_year: 2020, fiscal_period: FY, value: 120, valid_from: "2022-02-01", valid_to: null, source_concept: "us-gaap:NetCashProvidedByUsedInOperatingActivities", accession_number: a2, is_derived: false}
+          - {cik: 1, metric_id: capex, fiscal_year: 2020, fiscal_period: FY, value: 30, valid_from: "2021-02-01", valid_to: null, source_concept: "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment", accession_number: a1, is_derived: false}
+    expect:
+      rows:
+        - {metric_id: operating_cash_flow, value: 100, valid_from: "2021-02-01", valid_to: "2022-02-01", is_derived: false}
+        - {metric_id: operating_cash_flow, value: 120, valid_from: "2022-02-01", valid_to: null, is_derived: false}
+        - {metric_id: capex, value: 30, valid_from: "2021-02-01", valid_to: null, is_derived: false}
+        - {metric_id: free_cash_flow, value: 70, valid_from: "2021-02-01", valid_to: "2022-02-01", is_derived: true}
+        - {metric_id: free_cash_flow, value: 90, valid_from: "2022-02-01", valid_to: null, is_derived: true}

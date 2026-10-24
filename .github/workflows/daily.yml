@@ -11,6 +11,10 @@ on:
         description: "Make a dbt test fail on purpose to prove gold stays untouched"
         type: boolean
         default: false
+      full_refresh:
+        description: "Rebuild every company (after logic, mapping or seed changes)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -62,16 +66,21 @@ jobs:
           gcloud storage cp data/ops/ingest_state.json \
             "gs://$GCS_BUCKET/ops/ingest_state/$(date -u +%Y%m%dT%H%M%SZ).json"
 
-      - name: Load raw tables
-        run: uv run finfacts load-bq
+      - name: Load raw tables and plan which companies to rebuild
+        run: uv run finfacts load-bq ${{ inputs.full_refresh && '--full-refresh' || '' }}
 
       - name: Build and test in audit (write-audit)
-        run: >
-          uv run dbt build --project-dir dbt --profiles-dir dbt --target bq
-          --vars '{wap_drill: ${{ inputs.wap_drill || false }}}'
+        run: |
+          # company scope from load-bq ({} = everything) plus the drill switch
+          VARS=$(jq -c --argjson drill ${{ inputs.wap_drill || false }} '. + {wap_drill: $drill}' data/dbt_vars.json)
+          uv run dbt build --project-dir dbt --profiles-dir dbt --target bq --vars "$VARS" \
+            ${{ inputs.full_refresh && '--full-refresh' || '' }}
 
       - name: Publish to gold (only reached when every test passed)
         run: uv run finfacts publish
+
+      - name: Record what was built (next run rebuilds only companies with newer files)
+        run: uv run finfacts mark-built
 
       - name: Record run in ops.run_log
         if: always()

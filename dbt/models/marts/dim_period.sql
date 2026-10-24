@@ -1,3 +1,4 @@
+{{ config(**company_incremental_config()) }}
 -- One row per (company, period_start, period_end) seen in the facts.
 -- Fiscal labels come from the period DATES and the company's fiscal year end, never from
 -- the fact's fy/fp fields (those describe the filing the fact appeared in).
@@ -5,8 +6,9 @@
 -- shortcut: uses the CURRENT fiscal year end; companies that changed FYE get mislabelled
 -- periods before the change (caught by the warn test assert_fiscal_period_unique).
 with periods as (
-    select distinct cik, period_key, period_start, period_end
+    select distinct cik, cik_bucket, period_key, period_start, period_end
     from {{ ref('int_fact_versions') }}
+    where {{ company_scope('cik_bucket', 'bucket') }}
 ),
 
 fye_raw as (
@@ -91,6 +93,7 @@ labelled as (
 select
     period_key,
     cast(cik as bigint) as cik,
+    cast(cik_bucket as bigint) as cik_bucket,
     period_start,
     period_end,
     case when period_start is null then 'instant' else 'duration' end as period_type,

@@ -4,5 +4,6 @@
 select cik, fiscal_year, fiscal_period, period_type, count(*) as n
 from {{ ref('dim_period') }}
 where fiscal_period != 'OTHER'
+    and {{ bucket_test_scope() }}  -- only rebuilt companies on incremental runs
 group by cik, fiscal_year, fiscal_period, period_type
 having count(*) > 1

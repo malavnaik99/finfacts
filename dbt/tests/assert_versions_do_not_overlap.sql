@@ -5,6 +5,7 @@ with v as (
         fact_key, version_no, valid_from, valid_to,
         lead(valid_from) over (partition by fact_key order by version_no) as next_from
     from {{ ref('int_fact_versions') }}
+    where {{ bucket_test_scope() }}  -- only rebuilt companies on incremental runs
 )
 select *
 from v

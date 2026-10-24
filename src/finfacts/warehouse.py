@@ -17,6 +17,7 @@ import google.cloud.storage as storage
 from google.cloud import bigquery
 
 from finfacts.ingest.universe import UNIVERSE_DIR, latest_universe_path
+from finfacts.scope import Manifest, manifest_from
 
 log = logging.getLogger(__name__)
 
@@ -48,16 +49,27 @@ def latest_per_cik(object_names: Iterable[str]) -> list[str]:
     return sorted(name for _, name in best.values())
 
 
-def load_raw(client: bigquery.Client, bucket: str, dataset: str = "raw") -> None:
-    """Replace raw tables from GCS parquet and the committed config CSVs (load jobs: free)."""
+def load_raw(client: bigquery.Client, bucket: str, dataset: str = "raw") -> Manifest:
+    """Replace raw tables from GCS parquet and the committed config CSVs (load jobs: free).
+
+    Returns the manifest of loaded objects per CIK, which decides what dbt rebuilds.
+    Raw tables are clustered by CIK so the incremental build's CIK filters prune blocks.
+    """
     gcs = storage.Client(project=client.project)
+    loaded: list[str] = []
     for table in FLAT_TABLES:
         prefix = f"gs://{bucket}/flat/{table}/"
+        names = [b.name for b in gcs.list_blobs(bucket, prefix=f"flat/{table}/")]
         if table == "companyfacts":
-            names = (b.name for b in gcs.list_blobs(bucket, prefix=f"flat/{table}/"))
-            uris: str | list[str] = [f"gs://{bucket}/{n}" for n in latest_per_cik(names)]
-        else:
-            uris = f"{prefix}*"  # filings and company rows are deduplicated in dbt staging
+            names = latest_per_cik(names)
+        else:  # filings and company rows are deduplicated in dbt staging
+            names = [n for n in names if n.endswith(".parquet")]
+        loaded += names
+        # Explicit URIs only for companyfacts (one file per company); filings and company
+        # files accumulate daily and a load job accepts at most 10,000 URIs, so use a wildcard.
+        uris: str | list[str] = (
+            [f"gs://{bucket}/{n}" for n in names] if table == "companyfacts" else f"{prefix}*"
+        )
         hive = bigquery.HivePartitioningOptions()
         hive.mode = "AUTO"
         hive.source_uri_prefix = prefix
@@ -65,10 +77,11 @@ def load_raw(client: bigquery.Client, bucket: str, dataset: str = "raw") -> None
             source_format=bigquery.SourceFormat.PARQUET,
             write_disposition=bigquery.WriteDisposition.WRITE_TRUNCATE,
             hive_partitioning=hive,
+            clustering_fields=["cik"],
         )
-        job = client.load_table_from_uri(
-            uris, f"{client.project}.{dataset}.{table}", job_config=config
-        )
+        table_id = f"{client.project}.{dataset}.{table}"
+        _drop_if_clustering_differs(client, table_id, ["cik"])
+        job = client.load_table_from_uri(uris, table_id, job_config=config)
         job.result()
         log.info("loaded %s.%s: %s rows", dataset, table, job.output_rows)
 
@@ -88,6 +101,44 @@ def load_raw(client: bigquery.Client, bucket: str, dataset: str = "raw") -> None
             )
         job.result()
         log.info("loaded %s.%s from %s: %s rows", dataset, table, path.name, job.output_rows)
+    return manifest_from(loaded)
+
+
+def _drop_if_clustering_differs(client: bigquery.Client, table_id: str, fields: list[str]) -> None:
+    """A load cannot change a table's clustering; raw tables are rebuilt from GCS every run,
+    so an old unclustered copy is simply dropped first (a one-time migration)."""
+    from google.api_core.exceptions import NotFound
+
+    try:
+        existing = client.get_table(table_id)
+    except NotFound:
+        return
+    if (existing.clustering_fields or []) != fields:
+        log.info("dropping %s to change its clustering to %s", table_id, fields)
+        client.delete_table(table_id)
+
+
+BUILT_MANIFEST_PREFIX = "ops/built_manifest/"
+
+
+def read_built_manifest(gcs: storage.Client, bucket: str) -> Manifest | None:
+    """Manifest of the last successful build (newest object), or None if there is none."""
+    blobs = sorted(gcs.list_blobs(bucket, prefix=BUILT_MANIFEST_PREFIX), key=lambda b: b.name)
+    if not blobs:
+        return None
+    raw = json.loads(blobs[-1].download_as_text())
+    return {int(k): v for k, v in raw.items()}
+
+
+def write_built_manifest(gcs: storage.Client, bucket: str, manifest: Manifest, stamp: str) -> str:
+    """Save a new manifest object (append-only: the pipeline cannot overwrite objects)."""
+    name = f"{BUILT_MANIFEST_PREFIX}{stamp}.json"
+    gcs.bucket(bucket).blob(name).upload_from_string(
+        json.dumps({str(k): v for k, v in sorted(manifest.items())}),
+        content_type="application/json",
+        if_generation_match=0,
+    )
+    return name
 
 
 def published_models(manifest_path: Path) -> list[str]:

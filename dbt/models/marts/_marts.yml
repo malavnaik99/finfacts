@@ -33,8 +33,9 @@ models:
     config:
       contract: {enforced: true}
     columns:
-      - {name: period_key, data_type: string, constraints: [{type: not_null}], data_tests: [unique]}
+      - {name: period_key, data_type: string, constraints: [{type: not_null}], data_tests: [{unique: {config: &bucket_scope {where: "{{ 'cik_bucket in (' ~ (var('changed_buckets') | join(', ') or '-1') ~ ')' if var('changed_buckets', none) is not none else '1 = 1' }}"}}}]}
       - {name: cik, data_type: int64, constraints: [{type: not_null}]}
+      - {name: cik_bucket, data_type: int64, description: "CIK mod 1000: incremental rebuild unit (see macros/incremental_by_company.sql)"}
       - {name: period_start, data_type: date, description: "null for instant (balance-sheet) facts"}
       - {name: period_end, data_type: date, constraints: [{type: not_null}]}
       - name: period_type

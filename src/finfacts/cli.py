@@ -1,5 +1,6 @@
 """`finfacts` command-line entry point, shared by Make, Airflow and GitHub Actions."""
 
+import json
 import logging
 import os
 import sys
@@ -106,15 +107,69 @@ def _bq() -> "bigquery.Client":
     return bigquery.Client(project=s.gcp_project_id, location="US")
 
 
+RAW_MANIFEST = Path("data/raw_manifest.json")
+DBT_VARS = Path("data/dbt_vars.json")
+
+
 @app.command("load-bq")
-def load_bq_cmd() -> None:
-    """Replace BigQuery raw tables from the flattened parquet in GCS (free load jobs)."""
-    from finfacts import warehouse
+def load_bq_cmd(
+    full_refresh: bool = typer.Option(False, help="rebuild every company (no scope vars)"),
+) -> None:
+    """Replace BigQuery raw tables from GCS and plan which companies dbt must rebuild.
+
+    Writes data/dbt_vars.json (empty = full rebuild) and data/raw_manifest.json, which
+    `finfacts mark-built` records after a successful publish.
+    """
+    import google.cloud.storage as storage
+
+    from finfacts import scope, warehouse
 
     s = _settings()
     if not s.gcs_bucket:
         raise typer.BadParameter("set GCS_BUCKET")
-    warehouse.load_raw(_bq(), s.gcs_bucket)
+    client = _bq()
+    current = warehouse.load_raw(client, s.gcs_bucket)
+    built = (
+        None
+        if full_refresh
+        else warehouse.read_built_manifest(storage.Client(project=client.project), s.gcs_bucket)
+    )
+    if built is None:
+        dbt_vars: dict[str, list[int]] = {}
+        typer.echo("dbt scope: FULL rebuild")
+    else:
+        universe_ciks = {c.cik for c in universe.load_universe(universe.latest_universe_path())}
+        changed = scope.changed_ciks(current, built)
+        dbt_vars = scope.plan_scope(changed, universe_ciks, universe.load_predecessor_map())
+        typer.echo(
+            f"dbt scope: {len(changed)} changed CIKs -> {len(dbt_vars['scope_ciks'])} companies "
+            f"in {len(dbt_vars['changed_buckets'])} buckets"
+        )
+    DBT_VARS.parent.mkdir(parents=True, exist_ok=True)
+    DBT_VARS.write_text(json.dumps(dbt_vars), encoding="utf-8")
+    RAW_MANIFEST.write_text(json.dumps({str(k): v for k, v in current.items()}), encoding="utf-8")
+
+
+@app.command("mark-built")
+def mark_built_cmd() -> None:
+    """Record the loaded files as built. Run only after `finfacts publish` succeeded."""
+    from datetime import UTC, datetime
+
+    import google.cloud.storage as storage
+
+    from finfacts import warehouse
+
+    s = _settings()
+    if not s.gcs_bucket or not s.gcp_project_id:
+        raise typer.BadParameter("set GCS_BUCKET and GCP_PROJECT_ID")
+    manifest = {int(k): v for k, v in json.loads(RAW_MANIFEST.read_text("utf-8")).items()}
+    name = warehouse.write_built_manifest(
+        storage.Client(project=s.gcp_project_id),
+        s.gcs_bucket,
+        manifest,
+        datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
+    )
+    typer.echo(f"recorded built manifest gs://{s.gcs_bucket}/{name}")
 
 
 @app.command("publish")

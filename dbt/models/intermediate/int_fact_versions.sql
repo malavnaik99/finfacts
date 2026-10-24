@@ -1,3 +1,4 @@
+{{ config(**company_incremental_config()) }}
 -- Restatement history: one row per distinct value a fact has had over time.
 -- A new version starts only when a later filing reports a DIFFERENT value for the same
 -- fact; repeating the same number as a comparative does not create a version.
@@ -20,6 +21,8 @@ with facts as (
     from {{ ref('stg_companyfacts') }} as f
     left join {{ ref('stg_filings') }} as fl
         on f.cik = fl.cik and f.accession_number = fl.accession_number
+        and {{ company_scope('fl.cik_bucket', 'bucket') }}
+    where {{ company_scope('f.cik_bucket', 'bucket') }}
 ),
 
 flagged as (
@@ -44,6 +47,7 @@ select
     fact_key,
     {{ surrogate_key(['cik', 'period_start', 'period_end']) }} as period_key,
     cik,
+    {{ cik_bucket('cik') }} as cik_bucket,
     taxonomy,
     concept,
     unit,

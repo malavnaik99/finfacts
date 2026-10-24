@@ -1,3 +1,4 @@
+{{ config(**company_incremental_config()) }}
 -- One row per (CIK, accession). An accession can be co-filed by several registrants.
 -- Predecessor CIKs map to their successor up to the succession date (stg_predecessors).
 with src as (
@@ -6,12 +7,14 @@ with src as (
         coalesce(p.successor_cik, cast(f.cik as bigint)) as mapped_cik
     from {{ source('flat', 'filings') }} as f
     left join {{ ref('stg_predecessors') }} as p on cast(f.cik as bigint) = p.predecessor_cik
-    where p.predecessor_cik is null or cast(f.filing_date as date) < p.cutoff_date
+    where (p.predecessor_cik is null or cast(f.filing_date as date) < p.cutoff_date)
+        and {{ company_scope('cast(f.cik as bigint)', 'raw') }}
 )
 
 select
     {{ surrogate_key(['mapped_cik', 'accession_number']) }} as filing_id,
     mapped_cik as cik,
+    {{ cik_bucket('mapped_cik') }} as cik_bucket,
     accession_number,
     cast(filing_date as date) as filing_date,
     cast(report_date as date) as report_date,

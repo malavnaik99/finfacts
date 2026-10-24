@@ -1,3 +1,4 @@
+{{ config(**company_incremental_config()) }}
 -- Reported metric versions: XBRL facts mapped to metrics via the concept map, on canonical
 -- periods only. Per company, metric and fiscal period exactly one concept is used: the
 -- highest-priority concept the company ever reported for it, recorded in source_concept.
@@ -7,6 +8,7 @@
 with candidates as (
     select
         v.cik,
+        v.cik_bucket,
         m.metric_id,
         p.fiscal_year,
         p.fiscal_period,
@@ -23,6 +25,8 @@ with candidates as (
     inner join {{ ref('metrics') }} as mt on m.metric_id = mt.metric_id
     inner join {{ ref('int_canonical_periods') }} as p
         on v.period_key = p.period_key and p.period_type = mt.period_type
+        and {{ company_scope('p.cik_bucket', 'bucket') }}
+    where {{ company_scope('v.cik_bucket', 'bucket') }}
 ),
 
 chosen as (
@@ -34,6 +38,7 @@ chosen as (
 mapped as (
     select
         c.cik,
+        c.cik_bucket,
         c.metric_id,
         c.fiscal_year,
         c.fiscal_period,

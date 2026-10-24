@@ -10,8 +10,15 @@
     ).columns[0].values() -%}
 {%- endif %}
 
-with derived as (
+with base as (
+    -- explicit columns: int_metric_reported also carries its incremental cik_bucket
+    select cik, metric_id, fiscal_year, fiscal_period, value, valid_from, valid_to,
+           source_concept, accession_number, is_derived
+    from {{ ref('int_metric_reported') }}
+),
+
+derived as (
     {{ derive(ref('int_metric_reported'), quarter_rules(flow_metrics), 'a - b', same_source=true) }}
 )
 
-{{ fill_missing(ref('int_metric_reported'), 'derived') }}
+{{ fill_missing('base', 'derived') }}

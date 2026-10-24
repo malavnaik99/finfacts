@@ -9,25 +9,41 @@ models:
     columns:
       - name: filing_fact_id
         description: Hash of fact_key + accession_number. Grain key.
-        data_tests: [unique, not_null]
+        data_tests:
+          - unique:
+              config: &bucket_scope {where: "{{ 'cik_bucket in (' ~ (var('changed_buckets') | join(', ') or '-1') ~ ')' if var('changed_buckets', none) is not none else '1 = 1' }}"}
+          - not_null:
+              config: *bucket_scope
       - name: fact_key
         description: Hash of (cik, taxonomy, concept, unit, period_start, period_end); the same fact across filings.
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: *bucket_scope
       - name: cik
         data_tests:
-          - not_null
+          - not_null:
+              config: *bucket_scope
           - relationships:
+              config: *bucket_scope
               arguments:
                 to: ref('stg_universe')
                 field: cik
       - name: period_end
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: *bucket_scope
       - name: value
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: *bucket_scope
       - name: accession_number
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: *bucket_scope
       - name: filed_date
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: *bucket_scope
       - name: filing_fiscal_year
         description: Fiscal year of the FILING (SEC `fy`), not of the fact. Do not use for period logic.
 
@@ -35,9 +51,15 @@ models:
     description: One row per (cik, accession_number) from submissions.
     columns:
       - name: filing_id
-        data_tests: [unique, not_null]
+        data_tests:
+          - unique:
+              config: *bucket_scope
+          - not_null:
+              config: *bucket_scope
       - name: accession_number
-        data_tests: [not_null]
+        data_tests:
+          - not_null:
+              config: *bucket_scope
       - name: accepted_at
         description: SEC acceptance time, UTC.
 

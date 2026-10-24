@@ -1,3 +1,4 @@
+{{ config(**company_incremental_config()) }}
 -- One row per fact as reported in one filing (accession).
 -- The same fact repeats across snapshots; keep the copy from the newest snapshot.
 -- Predecessor CIKs are mapped to their successor (see stg_predecessors), so a company's
@@ -23,6 +24,7 @@ with src as (
     where (p.predecessor_cik is null or cast(f.filed as date) < p.cutoff_date)
         and taxonomy in ('{{ var("in_scope_taxonomies") | join("', '") }}')
         and form in ('{{ var("financial_statement_forms") | join("', '") }}')
+        and {{ company_scope('cast(f.cik as bigint)', 'raw') }}
 )
 
 select
@@ -30,6 +32,7 @@ select
         as fact_key,
     {{ surrogate_key(['cik', 'taxonomy', 'concept', 'unit', 'period_start', 'period_end',
                       'accession_number']) }} as filing_fact_id,
+    {{ cik_bucket('cik') }} as cik_bucket,
     *
 from src
 where period_end >= cast('{{ var("min_period_end") }}' as date)

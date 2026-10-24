@@ -67,6 +67,12 @@ def latest_universe_path(universe_dir: Path = UNIVERSE_DIR) -> Path:
     return paths[-1]
 
 
+def load_predecessor_map(path: Path = UNIVERSE_DIR / "predecessors.csv") -> dict[int, int]:
+    """Predecessor CIK -> successor CIK."""
+    with path.open(encoding="utf-8") as fh:
+        return {int(r["predecessor_cik"]): int(r["successor_cik"]) for r in csv.DictReader(fh)}
+
+
 def load_predecessor_ciks(path: Path = UNIVERSE_DIR / "predecessors.csv") -> set[int]:
     """CIKs a universe company filed under before re-registering (e.g. Exxon Mobil Corp).
 
