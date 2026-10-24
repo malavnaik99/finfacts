@@ -30,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Note start time
+        run: echo "STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
         with:
@@ -70,6 +72,13 @@ jobs:
 
       - name: Publish to gold (only reached when every test passed)
         run: uv run finfacts publish
+
+      - name: Record run in ops.run_log
+        if: always()
+        continue-on-error: true  # a logging problem must not mark a good publish as failed
+        run: >
+          uv run finfacts record-run --status ${{ job.status }} --started-at "$STARTED_AT"
+          --run-id ${{ github.run_id }} --trigger ${{ github.event_name }} --git-sha ${{ github.sha }}
 
       - name: Keep dbt artifacts
         if: always()

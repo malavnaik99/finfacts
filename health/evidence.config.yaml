@@ -1,0 +1,9 @@
+# Served under the site URL (config/site.toml) at /finfacts/; links stay relative.
+deployment:
+  basePath: /finfacts
+
+plugins:
+  components:
+    "@evidence-dev/core-components": {}
+  datasources:
+    "@evidence-dev/bigquery": {}

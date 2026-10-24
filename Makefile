@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup check-env lint fmt typecheck test ci universe backfill-local incremental \
-        flatten build dbt-ci fixtures demo-query load-bq bq-build publish
+        flatten build dbt-ci fixtures demo-query load-bq bq-build publish semantic-check
 
 DBT := uv run dbt --no-use-colors
 DBT_ARGS := --project-dir dbt --profiles-dir dbt
@@ -54,6 +54,10 @@ dbt-ci:  ## dbt build on committed fixtures (offline)
 	uv run python -c "import shutil; shutil.rmtree('build/ci', ignore_errors=True); shutil.copytree('tests/fixtures/bronze', 'build/ci/bronze')"
 	uv run finfacts flatten
 	$(DBT) build $(DBT_ARGS) --exclude tag:full_data
+	uv run python scripts/check_semantic_layer.py build/ci/finfacts.duckdb
+
+semantic-check:  ## MetricFlow revenue by company and fiscal year == plain SQL on gold
+	uv run python scripts/check_semantic_layer.py
 
 demo-query:  ## Apple quarterly revenue FY2015-latest from the gold mart
 	uv run finfacts query queries/apple_quarterly_revenue.sql

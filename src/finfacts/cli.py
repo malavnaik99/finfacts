@@ -126,3 +126,29 @@ def publish_cmd(
     tables = warehouse.published_models(manifest)
     warehouse.publish(_bq(), tables)
     typer.echo(f"published {len(tables)} tables: {', '.join(tables)}")
+
+
+@app.command("record-run")
+def record_run_cmd(
+    status: str = typer.Option(..., help="success or failure"),
+    started_at: str = typer.Option(..., help="UTC ISO timestamp when the run started"),
+    run_id: str = typer.Option(..., help="unique run id (GitHub run id or local)"),
+    trigger: str = typer.Option("local", help="schedule, workflow_dispatch or local"),
+    git_sha: str = typer.Option("", help="commit the run used"),
+    run_results: Path = typer.Option(Path("dbt/target/run_results.json")),
+) -> None:
+    """Append this pipeline run to ops.run_log (status, dbt outcomes, bytes, freshness)."""
+    from datetime import UTC, datetime
+
+    from finfacts import warehouse
+
+    row: dict[str, object] = {
+        "run_id": run_id,
+        "trigger": trigger,
+        "git_sha": git_sha,
+        "status": status,
+        "started_at": started_at,
+        "finished_at": datetime.now(UTC).isoformat(),
+        **warehouse.dbt_counts(run_results),
+    }
+    warehouse.record_run(_bq(), row)

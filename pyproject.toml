@@ -18,6 +18,7 @@ dependencies = [
     "dbt-bigquery>=1.12.1",
     "google-cloud-bigquery>=3.46.2",
     "google-cloud-storage>=3.1.1",
+    "dbt-metricflow>=0.15.0",
 ]
 
 [project.scripts]

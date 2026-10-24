@@ -1,0 +1,8 @@
+# Build-time queries against BigQuery. No keys: Application Default Credentials from
+# `gcloud auth application-default login` locally, Workload Identity in GitHub Actions.
+name: finfacts
+type: bigquery
+options:
+  project_id: finfacts-mn-2026
+  location: US
+  authenticator: gcloud-cli

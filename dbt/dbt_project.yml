@@ -35,6 +35,9 @@ models:
     quality:
       +materialized: table
       +schema: quality
+    semantic:
+      +materialized: table
+      +schema: gold
 
 seeds:
   finfacts:
