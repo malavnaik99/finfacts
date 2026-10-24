@@ -192,7 +192,7 @@ On raw facts the model scores 0% on derived Q4s, top-N rankings, sector shares a
 
 ## Production: daily run on GCP with write-audit-publish
 
-Every morning (06:30 UTC) a GitHub Actions workflow ([`daily.yml`](.github/workflows/daily.yml)) runs the same `finfacts` CLI and dbt project as your laptop:
+Every morning (08:30 UTC) a GitHub Actions workflow ([`daily.yml`](.github/workflows/daily.yml)) runs the same `finfacts` CLI and dbt project as your laptop:
 
 ```
 SEC submissions ─► incremental load ─► flatten ─► GCS (append-only)

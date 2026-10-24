@@ -4,7 +4,7 @@ name: daily
 # so `gold` keeps its last good version; GitHub emails the failure.
 on:
   schedule:
-    - cron: "30 6 * * *"  # 06:30 UTC, after SEC's nightly bulk files
+    - cron: "30 8 * * *"  # 08:30 UTC: after SEC's nightly bulk files and the BigQuery daily quota reset (midnight Pacific)
   workflow_dispatch:
     inputs:
       wap_drill:
