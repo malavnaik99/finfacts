@@ -48,6 +48,7 @@ One `finfacts` CLI runs locally on DuckDB and in production on BigQuery from a d
 | Coverage | 498 companies, FY2015 to today, 21 certified metrics; revenue, net income and total assets for ≥ 97.7% of company-years |
 | Correctness | 30/30 golden values read from 10-K statements match *as known the day after filing*; the semantic layer equals plain SQL for 5,320 company-years |
 | Reliability | Daily runs green since launch; a deliberate test failure (WAP drill) left `gold` untouched |
+| 10-K retrieval | 87,082 chunks of Item 1A and Item 7 from 1,067 FY2024+ 10-Ks; 10/10 smoke-test questions retrieve a relevant company's text in the top 5 |
 | Cost | ~9 GB scanned per daily run (~270 GB/month, inside BigQuery's free 1 TB); EUR 0 so far |
 | Eval set | 150 questions with gold SQL; text-to-SQL execution accuracy with the same model (`anthropic/claude-haiku-5.5`) rose from **67.3% on raw XBRL facts to 100.0% on the semantic layer** (raw: 0% on derived Q4s, top-N, sector shares and ExxonMobil's pre-2025 history). Total LLM cost: US$0.21 |
 

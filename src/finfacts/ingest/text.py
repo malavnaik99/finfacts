@@ -2,8 +2,9 @@
 
 1. extract: edgartools parses each 10-K into items; the two sections land in bronze as
    filings_text/<accession>.json.gz (write-once, so reruns skip done filings).
-2. chunk:   ~600 words (~800 tokens) per chunk with ~75 words (~100 tokens) of overlap, each
-            chunk tagged with company, fiscal year, item and accession.
+2. chunk:   ~350 words (~470 tokens) per chunk with 50 words of overlap, so every word fits in
+            the embedding model's 512-token window; tagged with company, fiscal year, item
+            and accession.
 3. embed:   BAAI/bge-small-en-v1.5 (384 dims) into a LanceDB table, plus a parquet export.
 """
 
@@ -21,8 +22,8 @@ from finfacts.storage import write_once
 log = logging.getLogger(__name__)
 
 ITEMS = {"1A": "Item 1A", "7": "Item 7"}
-CHUNK_WORDS = 600
-OVERLAP_WORDS = 75
+CHUNK_WORDS = 350  # bge-small reads at most 512 tokens; ~350 words stays inside it
+OVERLAP_WORDS = 50
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 
 

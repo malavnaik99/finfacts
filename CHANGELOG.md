@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] – 2026-10-24 – Milestone 6: eval set, text-to-SQL baseline, 10-K retrieval
+
+### Added
+- Frozen eval snapshot (2026-10-24) with `raw` (SEC XBRL facts) and `semantic` (certified tables) schemas; `finfacts eval-build`.
+- Eval set v1: 150 questions (110 templated, 40 hand-written), gold SQL and gold answers; 15/15 sampled answers match SEC's `companyconcept` API.
+- `finfacts eval` / `make eval`: text-to-SQL execution accuracy before vs after the semantic layer, `anthropic/claude-haiku-5.5` via OpenRouter: **67.3% → 100.0%** (US$0.21).
+- `finfacts text`: Item 1A and Item 7 from 1,067 FY2024+ 10-Ks (edgartools, 4 workers, write-once bronze; 99% of sections extracted).
+- `finfacts embed` / `finfacts search`: 87,082 chunks embedded with `BAAI/bge-small-en-v1.5` into LanceDB + parquet; retrieval smoke test 10/10.
+- Public Hugging Face dataset [Malavnaik/finfacts](https://huggingface.co/datasets/Malavnaik/finfacts) (CC BY 4.0) with dataset card.
+- README results table, architecture diagram and badges; `docs/case-study.md`; `docs/demo-script.md`.
+
+### Changed (approved)
+- 10-K chunks are ~350 words (~470 tokens) with 50-word overlap instead of ~800 tokens: the embedding model reads at most 512 tokens, so longer chunks would leave their tails unsearchable.
+
+### Fixed
+- The health page is now built as the last job of the daily run; the `workflow_run` trigger could not obtain BigQuery credentials.
+
 ## [0.5.0] – 2026-10-24 – Milestone 5: semantic layer and data-health page
 
 ### Added

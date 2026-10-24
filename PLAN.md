@@ -278,7 +278,7 @@ MetricFlow semantic models and metrics for all ~20. Add `ops.run_log` with bytes
 *Done when:* `mf query --metrics revenue --group-by company__ticker,metric_time__year` returns the same numbers as the gold SQL (a test asserts it). The health page is live at `<site_url>/finfacts/` and refreshes after each daily run.
 
 **Week 6 – AI outputs and portfolio**
-Eval set v1 (≥ 150 questions; ~110 templated plus ~40 hand-written hard ones, gold SQL, gold answers computed from gold, 10% manually verified). Item 1A + Item 7 extraction for FY2022+ 10-Ks, chunking (~800 tokens, 100 overlap, metadata: cik, ticker, fy, item, accn), embeddings → LanceDB + HF parquet. Before/after text-to-SQL run. Write the README, case study and demo video script.
+Eval set v1 (≥ 150 questions; ~110 templated plus ~40 hand-written hard ones, gold SQL, gold answers computed from gold, 10% manually verified). Item 1A + Item 7 extraction for FY2022+ 10-Ks, chunking (~350 words ≈ 470 tokens, 50-word overlap; *changed 2026-10-24, approved: the planned ~800 tokens exceeded bge-small's 512-token window*; metadata: cik, ticker, fy, item, accn), embeddings → LanceDB + HF parquet. Before/after text-to-SQL run. Write the README, case study and demo video script.
 *Done when:* the HF dataset page is public with a dataset card and licence; `make eval` prints before/after execution accuracy; the retrieval smoke test returns relevant chunks for 10 sample queries; the README has the architecture diagram, results table and badges.
 
 **Cut line if behind schedule:** drop in this order: Marquez UI demo → hand-written eval questions beyond 150 → 10-K text for years before FY2024 → Airflow (keep the GH Actions schedule). Never cut WAP, tests or the golden values.

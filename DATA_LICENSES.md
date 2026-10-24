@@ -8,8 +8,13 @@ FinFacts code is MIT-licensed. The data it processes comes from the sources belo
 | SEC EDGAR submissions (bulk) | https://www.sec.gov/Archives/edgar/daily-index/bulkdata/submissions.zip | As above | Filing metadata, accession numbers, fiscal year end | 2026-10-20 (snapshot 2026-10-20) |
 | SEC company tickers | https://www.sec.gov/files/company_tickers.json | As above | Validating CIKs in the universe | 2026-10-20 |
 | SEC EDGAR APIs: submissions and companyfacts | https://data.sec.gov/submissions/, https://data.sec.gov/api/xbrl/companyfacts/ | As above | Daily incremental load | 2026-10-20 |
+| SEC EDGAR 10-K documents (Item 1A and Item 7 text) | https://www.sec.gov/Archives/edgar/data/ | As above | Retrieval chunks and embeddings | 2026-10-24 |
 | S&P 500 constituents (datasets/s-and-p-500-companies) | https://github.com/datasets/s-and-p-500-companies | [ODC-PDDL 1.0](http://opendatacommons.org/licenses/pddl/) (public domain dedication) | Company universe snapshot in `config/universe/` | 2026-10-20 |
 
-Planned (added when first used): 10-K HTML documents from `sec.gov/Archives` (Week 6), under the SEC terms above. `tests/fixtures/bronze/` holds a trimmed copy of five companies' SEC data (public) for offline CI.
+`tests/fixtures/bronze/` holds a trimmed copy of eight companies' SEC data (public) for offline CI.
 
 "S&P 500" is a trademark of S&P Dow Jones Indices LLC. FinFacts only uses the public list of constituent companies and is not affiliated with or endorsed by S&P.
+
+## Outputs published by FinFacts
+
+The Hugging Face dataset [`Malavnaik/finfacts`](https://huggingface.co/datasets/Malavnaik/finfacts) (eval questions, gold SQL and answers, certified tables, 10-K chunks with embeddings) is released under **CC BY 4.0**. It is derived from the SEC sources above; the embedding model `BAAI/bge-small-en-v1.5` is MIT-licensed.

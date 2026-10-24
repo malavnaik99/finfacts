@@ -2,8 +2,9 @@
 
 [![ci](https://github.com/malavnaik99/finfacts/actions/workflows/ci.yml/badge.svg)](https://github.com/malavnaik99/finfacts/actions/workflows/ci.yml)
 [![daily](https://github.com/malavnaik99/finfacts/actions/workflows/daily.yml/badge.svg)](https://github.com/malavnaik99/finfacts/actions/workflows/daily.yml)
-
-**Live data-health page: https://malavnaik99.github.io/finfacts/** (rebuilt after every daily run)
+[![health page](https://img.shields.io/badge/data%20health-live-2ea44f)](https://malavnaik99.github.io/finfacts/)
+[![dataset](https://img.shields.io/badge/%F0%9F%A4%97%20dataset-Malavnaik%2Ffinfacts-yellow)](https://huggingface.co/datasets/Malavnaik/finfacts)
+[![licence](https://img.shields.io/badge/code-MIT-blue)](LICENSE)
 
 **Certified, point-in-time-correct SEC EDGAR fundamentals, so analysts, a text-to-SQL agent and an MCP server all get the same answer.**
 
@@ -13,7 +14,38 @@ Raw SEC XBRL data is hard to query consistently:
 - **Figures get restated.** The same period's value changes in later filings.
 - **Periods don't line up.** Fiscal years end in different months, Q4 is rarely filed directly, and the `fy`/`fp` fields in `companyfacts` describe the filing, not the fact.
 
-FinFacts turns S&P 500 filings (FY2015 to today) into a tested star schema with a semantic layer on top. See [PLAN.md](PLAN.md) for the full design and roadmap.
+FinFacts turns S&P 500 filings (FY2015 to today) into a tested star schema with a semantic layer on top, runs daily on GCP for about EUR 0 a month, and publishes an eval set and embedded 10-K text for LLM work. Links: **[live health page](https://malavnaik99.github.io/finfacts/)** · **[Hugging Face dataset](https://huggingface.co/datasets/Malavnaik/finfacts)** · **[case study](docs/case-study.md)** · [PLAN.md](PLAN.md)
+
+## Results at a glance
+
+| | Result |
+|---|---|
+| Coverage | 498 S&P 500 companies, FY2015 to today, 21 certified metrics; revenue, net income and total assets for ≥ 97.7% of company-years |
+| Correctness | 30/30 golden values from 10-K statements match *as known the day after filing*; semantic layer = plain SQL for 5,320 company-years |
+| Point-in-time | 660k fact versions; 58k restated values kept with SEC acceptance dates |
+| Text-to-SQL (150 questions, `anthropic/claude-haiku-5.5`) | **67.3%** on raw XBRL facts → **100.0%** on the FinFacts semantic layer (US$0.21 total) |
+| 10-K retrieval | 87,082 chunks of Item 1A and Item 7 from 1,067 FY2024+ 10-Ks; 10/10 smoke-test queries find a relevant chunk in the top 5 |
+| Reliability | Daily GitHub Actions run with write-audit-publish; a deliberate failing test left published data untouched |
+| Cost | ~9 GB scanned per run (inside BigQuery's free tier), hard cap 50 GB/day, budget alerts at EUR 5/15 |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  SEC["SEC EDGAR<br/>bulk zips + submissions API<br/>(8 req/s, declared User-Agent)"] --> ING["finfacts CLI<br/>backfill · incremental · flatten"]
+  ING --> GCS[("GCS bronze<br/>append-only")]
+  GCS -- free load jobs --> RAW[(BigQuery raw)]
+  RAW --> DBT["dbt: silver<br/>(restatement history)<br/>→ gold (21 metrics)"]
+  DBT --> AUD{"all tests pass<br/>in audit?"}
+  AUD -- yes --> GOLD[(BigQuery gold)]
+  AUD -- no --> KEEP["gold untouched<br/>+ failure email"]
+  GOLD --> SL["MetricFlow<br/>semantic layer"]
+  GOLD --> HP["health page<br/>(Evidence, GitHub Pages)"]
+  SL --> EV["eval set + text-to-SQL<br/>before/after"]
+  ING --> TXT["10-K Item 1A / 7"] --> VEC[("LanceDB + parquet<br/>bge-small embeddings")]
+  EV --> HF[("Hugging Face<br/>dataset")]
+  VEC --> HF
+```
 
 ## Status
 
@@ -24,7 +56,7 @@ FinFacts turns S&P 500 filings (FY2015 to today) into a tested star schema with 
 | 3. Concept mapping and gold mart | ✅ done |
 | 4. GCP, write-audit-publish, scheduling | ✅ done |
 | 5. Semantic layer and data-health page | ✅ done |
-| 6. AI outputs (eval set, 10-K embeddings) | ⏳ next |
+| 6. AI outputs (eval set, 10-K embeddings) | ✅ done |
 
 ## Quickstart (Windows, macOS or Linux)
 
@@ -139,6 +171,25 @@ cd dbt && DBT_PROFILES_DIR=. FINFACTS_DUCKDB_PATH=../data/finfacts.duckdb uv run
 
 Its build-time queries scan a few MB of BigQuery. The page itself is static (no live credentials).
 
+## AI outputs: eval set and 10-K retrieval
+
+**Eval set** ([`eval/v1`](eval/v1/), published on [Hugging Face](https://huggingface.co/datasets/Malavnaik/finfacts)): 150 natural-language questions with gold SQL and gold answers over a frozen snapshot (2026-10-24), so answers stay valid while the pipeline keeps loading new filings.
+
+- 110 templated questions (fixed seed): values, quarters, growth, margins, sector totals, rankings, as-originally-reported, restatement counts.
+- 40 hand-written hard ones: Walmart's January fiscal year, J&J's 52/53-week years, bank revenue, ExxonMobil's pre-2025 history under its old CIK, derived Q4s, medians, CAGR, top-N.
+- 15 answers (10%) cross-checked against SEC's own `companyconcept` API: 15/15 match ([`verification.csv`](eval/v1/verification.csv)).
+
+**Text-to-SQL before vs after** (`make eval`): the same model, rules and one repair attempt; only the schema differs.
+
+| Condition | Execution accuracy | SQL errors |
+|---|---|---|
+| Raw SEC XBRL facts (`raw` schema) | 67.3% | 20 |
+| FinFacts semantic layer (`semantic` schema + metric definitions) | **100.0%** | 0 |
+
+On raw facts the model scores 0% on derived Q4s, top-N rankings, sector shares and ExxonMobil's pre-2025 revenue, and 10% on sector totals. Caveat: the questions and gold SQL were written against FinFacts' schema, so the eval measures how much the certified layer helps, not a neutral benchmark of XBRL. Per-question SQL and results: [`eval/v1/results`](eval/v1/results/).
+
+**10-K retrieval** (`make text`, `make embed`): Item 1A (Risk Factors) and Item 7 (MD&A) from 1,067 FY2024+ 10-Ks (99% of sections extracted), ~350-word chunks with company, fiscal year, item and accession, embedded with `BAAI/bge-small-en-v1.5` into LanceDB. `uv run finfacts search "Medicare Advantage medical cost trends"` returns the top chunks; [`scripts/retrieval_smoke_test.py`](scripts/retrieval_smoke_test.py) checks 10 questions: 10/10 find a chunk from a relevant company in the top 5 (a smoke test, not a ranking benchmark: for two queries the best match is at rank 2–4).
+
 ## Production: daily run on GCP with write-audit-publish
 
 Every morning (06:30 UTC) a GitHub Actions workflow ([`daily.yml`](.github/workflows/daily.yml)) runs the same `finfacts` CLI and dbt project as your laptop:
@@ -194,7 +245,8 @@ health/            Evidence data-health page (GitHub Pages)
   seeds/           metric catalogue, concept map, golden values
 queries/           example SQL (`finfacts query <file>`)
 config/            site URL, universe snapshots
-docs/              design notes and data-quality findings
+docs/              design notes, data-quality findings, case study, demo script
+eval/              eval set v1: questions, hand-written YAML, verification, results
 scripts/           fixture generation
 tests/             pytest (offline) + fixtures (5 real companies, trimmed)
 ```
